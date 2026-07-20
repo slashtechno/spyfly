@@ -1,0 +1,111 @@
+{
+  "source": {
+    "runways": "OurAirports public domain dataset (davidmegginson.github.io/ourairports-data)",
+    "arrivalCorridor": "FAA-published Oshkosh VFR Arrival Procedures (Ripon Transition), via RST Engineering",
+    "facts": "EAA AirVenture Oshkosh 2025 Facts and Figures (eaa.org), FAA AirVenture domestic notice"
+  },
+  "runways": [
+    {
+      "ident": "18/36",
+      "lengthFt": 8002,
+      "widthFt": 150,
+      "surface": "Grooved concrete",
+      "lighted": true,
+      "note": "Longest runway on the field — primary jet/warbird runway, tower 126.6",
+      "ends": [
+        { "id": "18", "lat": 43.985801696777344, "lon": -88.556396484375, "headingDegT": 180.5 },
+        { "id": "36", "lat": 43.96379852294922, "lon": -88.55670166015625, "headingDegT": 0.5 }
+      ]
+    },
+    {
+      "ident": "09/27",
+      "lengthFt": 6179,
+      "widthFt": 150,
+      "surface": "Grooved asphalt",
+      "lighted": true,
+      "note": "Tower 118.5 — during AirVenture, the busiest control tower frequency in the world",
+      "ends": [
+        { "id": "09", "lat": 43.9916, "lon": -88.572098, "headingDegT": 91 },
+        { "id": "27", "lat": 43.991501, "lon": -88.548698, "headingDegT": 271 }
+      ]
+    },
+    {
+      "ident": "13/31",
+      "lengthFt": 3061,
+      "widthFt": 75,
+      "surface": "Asphalt",
+      "lighted": false,
+      "note": "Crosswind runway",
+      "ends": [
+        { "id": "13", "lat": 43.99119949, "lon": -88.55970001, "headingDegT": 129.4 },
+        { "id": "31", "lat": 43.98590088, "lon": -88.55069733, "headingDegT": 309.4 }
+      ]
+    },
+    {
+      "ident": "05/23",
+      "lengthFt": 3424,
+      "widthFt": 75,
+      "surface": "Asphalt",
+      "lighted": false,
+      "note": "Shortest runway — used for ultralights and light homebuilts during AirVenture",
+      "ends": [
+        { "id": "05", "lat": 43.986698, "lon": -88.558296, "headingDegT": 45 },
+        { "id": "23", "lat": 43.993301, "lon": -88.549103, "headingDegT": 225 }
+      ]
+    }
+  ],
+  "arrivalCorridor": {
+    "name": "The Fisk Arrival (Ripon Transition)",
+    "description": "The world-famous VFR arrival used by thousands of pilots flying into AirVenture. Aircraft funnel into a single-file line over a railroad track at 90 knots and 1,800 ft, exactly ½ mile apart, with radios silent — a controller on the ground at Fisk aims colored flags and gives instructions pilots acknowledge only by rocking their wings.",
+    "checkpoints": [
+      {
+        "name": "Ripon",
+        "lat": 43.838167,
+        "lon": -88.844667,
+        "distanceNmToField": 15,
+        "note": "Entry point — small-town water tower pilots fly over at 1,800 ft and 90 kt to join the line"
+      },
+      {
+        "name": "Pickett",
+        "lat": 43.9125,
+        "lon": -88.728833,
+        "distanceNmToField": 10,
+        "note": "Midpoint of the railroad-track single-file line"
+      },
+      {
+        "name": "Fisk",
+        "lat": 43.9545,
+        "lon": -88.685167,
+        "distanceNmToField": 5,
+        "note": "The hold-short point — a controller on the ground assigns each aircraft a runway and a colored dot using only flags and light signals, no radio"
+      }
+    ]
+  },
+  "facts": [
+    {
+      "label": "Busiest tower on Earth",
+      "value": "118.5 MHz",
+      "detail": "For this one week, KOSH's runway 9/27 tower frequency becomes the busiest air traffic control tower in the world."
+    },
+    {
+      "label": "2025 attendance",
+      "value": "704,000",
+      "detail": "Aggregate attendance across the 2025 show — EAA's official figure."
+    },
+    {
+      "label": "2025 aircraft operations",
+      "value": "16,246",
+      "detail": "Takeoffs and landings at Wittman Field alone over the show, ~108 per hour while the field was open."
+    },
+    {
+      "label": "Showplanes (2025)",
+      "value": "2,543",
+      "detail": "995 vintage, 910 homebuilt, 361 warbirds, 101 ultralights, 75 aerobatic, 74 seaplanes, 18 rotorcraft, 9 balloons."
+    },
+    {
+      "label": "Land on the dot",
+      "value": "No radio required",
+      "detail": "Controllers assign arriving aircraft to land on a colored dot painted on the runway — white, green, or orange — with zero radio contact."
+    }
+  ]
+}

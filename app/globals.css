@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #05060a;
+  --panel-0: #0a0c12;
+  --panel-1: #10131a;
+  --panel-2: #171b23;
+  --hairline: #22262f;
+  --ink-0: #f2f3f5;
+  --ink-1: #8b90a0;
+  --ink-2: #4d5262;
+  --gold: #d9a441;
+  --ice: #8fcbff;
+  --red: #ff5657;
+}
+
+@theme inline {
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+
+  --color-bg: var(--bg);
+  --color-panel-0: var(--panel-0);
+  --color-panel-1: var(--panel-1);
+  --color-panel-2: var(--panel-2);
+  --color-hairline: var(--hairline);
+  --color-ink-0: var(--ink-0);
+  --color-ink-1: var(--ink-1);
+  --color-ink-2: var(--ink-2);
+  --color-gold: var(--gold);
+  --color-ice: var(--ice);
+  --color-red: var(--red);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--gold) 30%, transparent);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+  border-radius: 999px;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* iOS standalone PWA mode (apple-mobile-web-app-status-bar-style:
+   black-translucent + viewport-fit: cover) draws page content underneath
+   the status bar / notch / home-indicator by design — without this, the
+   header and floating panels render too close to (or under) system UI. */
+.safe-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.safe-left {
+  padding-left: env(safe-area-inset-left);
+}
+.safe-right {
+  padding-right: env(safe-area-inset-right);
+}
+
+.hide-scrollbar {
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+.maplibregl-ctrl-attrib {
+  background: rgba(11, 13, 15, 0.75) !important;
+  color: var(--ink-2) !important;
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--ink-1) !important;
+}
+.maplibregl-ctrl-group {
+  background: var(--panel-1) !important;
+  border: 1px solid var(--hairline) !important;
+  box-shadow: none !important;
+}
+.maplibregl-ctrl-group button {
+  background: transparent !important;
+}
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--hairline) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

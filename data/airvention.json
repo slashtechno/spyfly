@@ -1,0 +1,84 @@
+{
+  "event": {
+    "name": "EAA AirVenture Oshkosh 2026",
+    "shortName": "AirVenture 2026",
+    "start": "2026-07-20",
+    "end": "2026-07-26",
+    "timezone": "America/Chicago",
+    "description": "The world's largest fly-in, held annually at Wittman Regional Airport — for one week, KOSH becomes the busiest control tower on Earth."
+  },
+  "airport": {
+    "icao": "KOSH",
+    "iata": "OSH",
+    "name": "Wittman Regional Airport",
+    "city": "Oshkosh, Wisconsin",
+    "lat": 43.9844,
+    "lon": -88.5570,
+    "elevationFt": 808
+  },
+  "bbox": {
+    "note": "Bounding box used for the live traffic query — sized to cover the field, pattern, and the Fisk VFR arrival corridor while keeping OpenSky's area-based anonymous rate limit affordable.",
+    "latMin": 43.82,
+    "latMax": 44.06,
+    "lonMin": -88.75,
+    "lonMax": -88.4
+  },
+  "atcFeeds": [
+    {
+      "id": "kosh_perm",
+      "label": "KOSH Gnd / Twr / App",
+      "sublabel": "Combined feed #1",
+      "freqMhz": "118.500",
+      "mount": "kosh_perm",
+      "listenUrl": "https://www.liveatc.net/hlisten.php?mount=kosh_perm&icao=kosh"
+    },
+    {
+      "id": "kosh5_all",
+      "label": "KOSH Gnd / Twr / App",
+      "sublabel": "Combined feed #2",
+      "freqMhz": "126.600",
+      "mount": "kosh5_all",
+      "listenUrl": "https://www.liveatc.net/hlisten.php?mount=kosh5_all&icao=kosh"
+    },
+    {
+      "id": "kosh",
+      "label": "KOSH North Tower",
+      "sublabel": "Runway 09/27",
+      "freqMhz": "119.000",
+      "mount": "kosh",
+      "listenUrl": "https://www.liveatc.net/hlisten.php?mount=kosh&icao=kosh"
+    },
+    {
+      "id": "kosh3",
+      "label": "Fisk VFR Arrival",
+      "sublabel": "Feed #1 — \"the world's most famous approach\"",
+      "freqMhz": "126.900",
+      "mount": "kosh3",
+      "listenUrl": "https://www.liveatc.net/hlisten.php?mount=kosh3&icao=kosh"
+    },
+    {
+      "id": "kosh8_fisk",
+      "label": "Fisk VFR Arrival",
+      "sublabel": "Feed #2",
+      "freqMhz": "126.900",
+      "mount": "kosh8_fisk",
+      "listenUrl": "https://www.liveatc.net/hlisten.php?mount=kosh8_fisk&icao=kosh"
+    },
+    {
+      "id": "kosh_n_fisk3",
+      "label": "Fisk VFR Arrival",
+      "sublabel": "Feed #3 — North",
+      "freqMhz": "126.900",
+      "mount": "kosh_n_fisk3",
+      "listenUrl": "https://www.liveatc.net/hlisten.php?mount=kosh_n_fisk3&icao=kosh"
+    },
+    {
+      "id": "kosh_s_fisk",
+      "label": "Fisk VFR Arrival",
+      "sublabel": "Feed #4 — South",
+      "freqMhz": "126.900",
+      "mount": "kosh_s_fisk",
+      "listenUrl": "https://www.liveatc.net/hlisten.php?mount=kosh_s_fisk&icao=kosh"
+    }
+  ]
+}
