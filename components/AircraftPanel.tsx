@@ -146,7 +146,7 @@ export default function AircraftPanel({ flight }: { flight: Flight | null }) {
                 )}
               </div>
 
-              <div className="rounded-2xl border border-hairline/60 bg-gradient-to-br from-panel-2 to-panel-1 px-4 py-4">
+              <div className="rounded-2xl border border-hairline/60 bg-panel-1 px-4 py-4">
                 <span className="font-display text-[9px] font-bold uppercase tracking-[0.14em] text-ink-2">
                   Altitude
                 </span>

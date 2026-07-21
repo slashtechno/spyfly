@@ -97,6 +97,13 @@ body {
   animation: pulse-dot 1.6s ease-in-out infinite;
 }
 
+/* The header overlay floats on top of the full-bleed map, so MapLibre's own
+   top-right controls (zoom, geolocate) need to be pushed below it — their
+   `top: 0` is otherwise the same corner our status pills occupy. */
+.maplibregl-ctrl-top-right {
+  top: calc(4rem + max(0.5rem, env(safe-area-inset-top)) + 0.5rem) !important;
+}
+
 .maplibregl-ctrl-attrib {
   background: rgba(11, 13, 15, 0.75) !important;
   color: var(--ink-2) !important;

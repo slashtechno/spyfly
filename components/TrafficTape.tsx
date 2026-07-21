@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ArrowUp, ArrowDown, ArrowRight } from "lucide-react";
 import type { Flight as FlightT } from "@/lib/types";
 import { squawkAlert, trend } from "@/lib/format";
 import { flightCategory, type FlightCategory } from "@/lib/aircraftClass";
 import type { FlightsStatus } from "@/lib/useFlights";
 
-const trendGlyph: Record<string, string> = { up: "↑", down: "↓", level: "→" };
+const trendIcon: Record<string, typeof ArrowUp> = { up: ArrowUp, down: ArrowDown, level: ArrowRight };
 const trendColor: Record<string, string> = {
   up: "text-ice",
   down: "text-ink-1",
@@ -124,10 +125,12 @@ export default function TrafficTape({
                       <span className="text-ink-2"> ft</span>
                     </span>
                   )}
-                  <span className="font-mono text-[10px] tabular text-ink-2">
-                    {!f.onGround && (
-                      <span className={trendColor[t]}>{trendGlyph[t]} </span>
-                    )}
+                  <span className="flex items-center gap-0.5 font-mono text-[10px] tabular text-ink-2">
+                    {!f.onGround &&
+                      (() => {
+                        const TrendIcon = trendIcon[t];
+                        return <TrendIcon className={`h-2.5 w-2.5 ${trendColor[t]}`} strokeWidth={3} />;
+                      })()}
                     {kt !== null ? `${kt}kt` : "—"}
                   </span>
                 </div>

@@ -171,7 +171,10 @@ export default function Map3D({
       zoom: 12.3,
       pitch: 0,
       bearing: -25,
-      attributionControl: { compact: true },
+      attributionControl: {
+        compact: true,
+        customAttribution: "Traffic: airplanes.live",
+      },
     });
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");

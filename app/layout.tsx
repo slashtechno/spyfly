@@ -21,9 +21,9 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AirVenture Live — KOSH Traffic & ATC",
+  title: "AirVenture Live — KOSH Traffic Radar",
   description:
-    "Live 3D traffic radar and ATC audio for EAA AirVenture Oshkosh, built on public airplanes.live and LiveATC data.",
+    "Live 3D traffic radar for EAA AirVenture Oshkosh, built on public airplanes.live data.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

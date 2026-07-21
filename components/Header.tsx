@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { Plane } from "lucide-react";
 import airvention from "@/data/airvention.json";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import type { FlightsStatus } from "@/lib/useFlights";
@@ -49,9 +50,7 @@ export default function Header({
       className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6"
     >
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold text-bg">
-          <span className="text-base leading-none">✈</span>
-        </div>
+        <Plane className="h-5 w-5 -rotate-45 text-gold" strokeWidth={2.25} />
         <div className="leading-none">
           <h1 className="font-display text-lg font-extrabold tracking-tight text-ink-0">
             AirVenture<span className="text-gold">Live</span>
@@ -62,16 +61,16 @@ export default function Header({
         </div>
       </div>
 
-      <div className="flex items-center gap-3 sm:gap-6">
+      <div className="flex items-center gap-2 sm:gap-3">
         {day && (
-          <div className="hidden items-baseline gap-1.5 sm:flex">
-            <span className="font-display text-2xl font-extrabold italic leading-none tabular text-ink-0">
+          <div className="hidden items-baseline gap-1.5 rounded-full border border-hairline bg-panel-1 px-3 py-1.5 sm:flex">
+            <span className="font-display text-sm font-extrabold italic leading-none tabular text-ink-0">
               <AnimatedNumber value={day} />
             </span>
-            <span className="font-mono text-[11px] text-ink-2">/ 7 days</span>
+            <span className="font-mono text-[10px] text-ink-2">/ 7 days</span>
           </div>
         )}
-        <div className="hidden flex-col items-end md:flex">
+        <div className="hidden items-baseline gap-1.5 rounded-full border border-hairline bg-panel-1 px-3 py-1.5 md:flex">
           <span className="font-mono text-xs tabular text-ink-0">
             {now ? now.toISOString().slice(11, 19) : "--:--:--"}Z
           </span>

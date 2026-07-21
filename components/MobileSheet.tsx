@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { motion } from "framer-motion";
+import { ChevronUp } from "lucide-react";
 
 export default function MobileSheet({
   tab,
@@ -27,7 +28,7 @@ export default function MobileSheet({
       initial={false}
       animate={{ height: open ? "60vh" : 56 }}
       transition={{ type: "spring", stiffness: 300, damping: 32 }}
-      className="pointer-events-auto flex flex-col overflow-hidden rounded-t-2xl border-t border-x border-hairline/60 bg-panel-0/95 backdrop-blur-xl lg:hidden"
+      className="pointer-events-auto flex flex-col overflow-hidden rounded-t-2xl border-t border-x border-hairline bg-panel-0/95 backdrop-blur-md lg:hidden"
     >
       <button
         onClick={() => onOpenChange(!open)}
@@ -65,12 +66,8 @@ export default function MobileSheet({
             </span>
           )}
         </div>
-        <motion.span
-          animate={{ rotate: open ? 180 : 0 }}
-          className="font-mono text-ink-2"
-          aria-hidden
-        >
-          ▲
+        <motion.span animate={{ rotate: open ? 180 : 0 }} className="text-ink-2" aria-hidden>
+          <ChevronUp className="h-4 w-4" strokeWidth={2.5} />
         </motion.span>
       </button>
       <div className="min-h-0 flex-1 overflow-hidden">
