@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { useFlights } from "@/lib/useFlights";
 import { useLocation } from "@/lib/useLocation";
+import { haversineNm } from "@/lib/geo";
 import Header from "@/components/Header";
 import TrafficTape from "@/components/TrafficTape";
 import AircraftPanel from "@/components/AircraftPanel";
@@ -13,13 +14,38 @@ import MobileSheet from "@/components/MobileSheet";
 const Map3D = dynamic(() => import("@/components/Map3D"), { ssr: false });
 
 const EASE = [0.16, 1, 0.3, 1] as const;
+// How far the map has to pan from the last flight-data fetch point before
+// live traffic follows it — big enough that scrolling/zooming in place
+// doesn't restart polling constantly, small enough that panning to a
+// different airport actually shows its traffic.
+const FLIGHT_FOLLOW_THRESHOLD_NM = 8;
 
 export default function Home() {
   const location = useLocation();
-  const { flights, status } = useFlights(location.lat, location.lon);
+  // Distinct from `location`: this is what live traffic is actually
+  // queried around. Starts wherever `location` is and re-centers either
+  // instantly (a search picked a new airport) or once panning has moved
+  // far enough to matter (see handleCenterChange) — never on every frame.
+  const [flightCenter, setFlightCenter] = useState({ lat: location.lat, lon: location.lon });
+  // "Adjust state during render" (not a useEffect) for the case where
+  // `location` changed out from under us — the React-recommended pattern
+  // for resetting derived state to follow a prop, since it bails out and
+  // re-renders immediately rather than committing a stale render first.
+  const [syncedLocation, setSyncedLocation] = useState(location);
+  if (syncedLocation.lat !== location.lat || syncedLocation.lon !== location.lon) {
+    setSyncedLocation(location);
+    setFlightCenter({ lat: location.lat, lon: location.lon });
+  }
+  const { flights, status } = useFlights(flightCenter.lat, flightCenter.lon);
   const [selectedIcao, setSelectedIcao] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetTab, setSheetTab] = useState<"traffic" | "aircraft">("traffic");
+
+  const handleCenterChange = useCallback((lat: number, lon: number) => {
+    setFlightCenter((prev) =>
+      haversineNm(lat, lon, prev.lat, prev.lon) > FLIGHT_FOLLOW_THRESHOLD_NM ? { lat, lon } : prev,
+    );
+  }, []);
 
   const selectedFlight = useMemo(
     () => flights.find((f) => f.icao24 === selectedIcao) ?? null,
@@ -48,7 +74,14 @@ export default function Home() {
             extra tick, invisible to the user, and Map3D is ssr:false anyway
             so this can't introduce a hydration mismatch. */}
         {location.resolved && (
-          <Map3D flights={flights} selectedIcao={selectedIcao} onSelect={handleSelect} location={location} />
+          <Map3D
+            flights={flights}
+            selectedIcao={selectedIcao}
+            onSelect={handleSelect}
+            location={location}
+            queryCenter={flightCenter}
+            onCenterChange={handleCenterChange}
+          />
         )}
       </div>
 

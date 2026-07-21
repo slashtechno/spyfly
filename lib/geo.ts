@@ -1,3 +1,49 @@
+// Great-circle distance in nautical miles. Used to decide whether the map
+// has panned "far enough" to be worth a fresh flights/runways fetch, rather
+// than refetching on every tiny nudge.
+export function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R_NM = 3440.065;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R_NM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// A geographic circle (constant real-world radius in nautical miles) around
+// a point, as a closed ring of [lon, lat] points — for drawing "this is the
+// area being queried" on the map. Deliberately not MapLibre's built-in
+// circle-layer type, which draws a fixed radius in screen pixels rather
+// than a constant distance on the ground, so it wouldn't stay accurate
+// across zoom levels the way this does.
+export function circlePoints(lat: number, lon: number, radiusNm: number, steps = 96): [number, number][] {
+  const R_NM = 3440.065;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => (r * 180) / Math.PI;
+  const latRad = toRad(lat);
+  const lonRad = toRad(lon);
+  const angularDist = radiusNm / R_NM;
+
+  const points: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const bearing = (i / steps) * 2 * Math.PI;
+    const pointLat = Math.asin(
+      Math.sin(latRad) * Math.cos(angularDist) +
+        Math.cos(latRad) * Math.sin(angularDist) * Math.cos(bearing),
+    );
+    const pointLon =
+      lonRad +
+      Math.atan2(
+        Math.sin(bearing) * Math.sin(angularDist) * Math.cos(latRad),
+        Math.cos(angularDist) - Math.sin(latRad) * Math.sin(pointLat),
+      );
+    points.push([toDeg(pointLon), toDeg(pointLat)]);
+  }
+  return points;
+}
+
 // Great-circle interpolation (slerp along the sphere) between two lng/lat
 // points. Used to draw a curved "flight so far" line instead of a straight
 // rhumb segment — this is the standard approximation every flight tracker

@@ -8,10 +8,14 @@ import airfield from "@/data/kosh-airfield.json";
 import type { RadarLocation } from "@/lib/useLocation";
 import { useFlightRoute } from "@/lib/useFlightRoute";
 import { useFlightTrack } from "@/lib/useFlightTrack";
-import { greatCirclePoints, projectForward, smoothExtension } from "@/lib/geo";
+import { FLIGHTS_RADIUS_NM } from "@/lib/useFlights";
+import { circlePoints, greatCirclePoints, haversineNm, projectForward, smoothExtension } from "@/lib/geo";
 
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 const POLL_MS = 9000;
+// Half the /api/runways search radius — refetch proactively before actually
+// panning past the edge of what was last fetched, not right at the edge.
+const RUNWAY_REFRESH_THRESHOLD_NM = 4;
 
 interface TrackedMarker {
   marker: maplibregl.Marker;
@@ -28,9 +32,16 @@ interface RunwayGeometry {
   ends: { lat: number; lon: number }[];
 }
 
+// ~0.6nm precision — enough to find nearby runways, coarse enough that a
+// device's exact GPS fix (from the map's "locate me" control) never shows
+// up verbatim in even our own server's request logs.
+function roundCoord(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 async function fetchNearbyRunways(lat: number, lon: number): Promise<RunwayGeometry[]> {
   try {
-    const res = await fetch(`/api/runways?lat=${lat}&lon=${lon}`);
+    const res = await fetch(`/api/runways?lat=${roundCoord(lat)}&lon=${roundCoord(lon)}`);
     if (!res.ok) return [];
     const data: { runways?: RunwayGeometry[] } = await res.json();
     return data.runways ?? [];
@@ -90,17 +101,45 @@ export default function Map3D({
   selectedIcao,
   onSelect,
   location,
+  queryCenter,
+  onCenterChange,
 }: {
   flights: Flight[];
   selectedIcao: string | null;
   onSelect: (icao: string) => void;
   location: RadarLocation;
+  // Wherever live flight data is actually being queried around right now —
+  // drawn as a faint ring so it's visible why traffic appears/disappears
+  // while panning. Distinct from `location` (see onCenterChange below).
+  queryCenter: { lat: number; lon: number };
+  // Reports the map's center on every settled pan/zoom (moveend) — used to
+  // keep live flight data relevant to what's actually on screen. Distinct
+  // from `location`: this never renames "where you are" in the header, it
+  // just follows the viewport.
+  onCenterChange?: (lat: number, lon: number) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<Map<string, TrackedMarker>>(new Map());
   const rafRef = useRef<number | null>(null);
   const selectedRef = useRef<string | null>(selectedIcao);
+  const onCenterChangeRef = useRef(onCenterChange);
+  // Tracks the point runways were last fetched for, so panning only
+  // triggers a refetch once you've actually moved far enough to matter.
+  const lastRunwayCenterRef = useRef({ lat: location.lat, lon: location.lon });
+  // The lat/lon the map is currently centered/flown to because of an
+  // explicit location change (search selection) — distinguishes "the user
+  // picked a new airport" from "the user is just panning around".
+  const flownLocationRef = useRef({ lat: location.lat, lon: location.lon });
+  // Set once the mount effect creates the map; lets the separate
+  // location-change effect below trigger the same runway refetch the
+  // mount-once effect's moveend handler uses, without needing them to
+  // share a closure.
+  const refreshRunwaysRef = useRef<(lat: number, lon: number) => Promise<void>>(async () => {});
+
+  useEffect(() => {
+    onCenterChangeRef.current = onCenterChange;
+  }, [onCenterChange]);
 
   const selectedFlight = flights.find((f) => f.icao24 === selectedIcao) ?? null;
   // Reuses useAircraftInfo/useFlightRoute's shared module-level cache, so
@@ -220,6 +259,41 @@ export default function Map3D({
     const resizeObserver = new ResizeObserver(() => map.resize());
     resizeObserver.observe(containerRef.current);
 
+    // Re-fetches nearby runways for wherever the map is now centered — the
+    // same live proximity lookup used for the initial location, so runways
+    // keep appearing as you pan toward a different airport instead of only
+    // ever showing whatever was nearby on load.
+    async function refreshRunways(lat: number, lon: number) {
+      const list = await fetchNearbyRunways(lat, lon);
+      const src = map.getSource("runways") as maplibregl.GeoJSONSource | undefined;
+      src?.setData({
+        type: "FeatureCollection",
+        features: list.map((r) => ({
+          type: "Feature" as const,
+          properties: { ident: r.ident, lengthFt: r.lengthFt },
+          geometry: {
+            type: "LineString" as const,
+            coordinates: [
+              [r.ends[0].lon, r.ends[0].lat],
+              [r.ends[1].lon, r.ends[1].lat],
+            ],
+          },
+        })),
+      });
+    }
+    refreshRunwaysRef.current = refreshRunways;
+
+    map.on("moveend", () => {
+      const c = map.getCenter();
+      onCenterChangeRef.current?.(c.lat, c.lng);
+
+      const last = lastRunwayCenterRef.current;
+      if (haversineNm(c.lat, c.lng, last.lat, last.lon) > RUNWAY_REFRESH_THRESHOLD_NM) {
+        lastRunwayCenterRef.current = { lat: c.lat, lon: c.lng };
+        refreshRunways(c.lat, c.lng);
+      }
+    });
+
     map.on("load", async () => {
       map.setSky({
         "sky-color": "#0a1120",
@@ -308,73 +382,96 @@ export default function Map3D({
         },
       });
 
-      // Real runway geometry (OurAirports). For the default AirVenture
-      // location this is the hand-picked, richly-annotated KOSH data; for
-      // any other point it's whatever /api/runways finds nearby — same
-      // shape, same rendering, just sourced live instead of curated.
-      const runways: RunwayGeometry[] = location.isDefault
-        ? airfield.runways
-        : await fetchNearbyRunways(location.lat, location.lon);
+      // Real runway geometry (OurAirports), fetched live for wherever the
+      // map is centered — same source /api/runways uses on every later
+      // moveend, so the initial paint and pan-driven updates share one code
+      // path. The source/layers are created empty-or-not up front so a
+      // later moveend always has something to setData() into, even if
+      // there happened to be nothing nearby on load.
+      const initialRunways = await fetchNearbyRunways(location.lat, location.lon);
+      map.addSource("runways", {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: initialRunways.map((r) => ({
+            type: "Feature" as const,
+            properties: { ident: r.ident, lengthFt: r.lengthFt },
+            geometry: {
+              type: "LineString" as const,
+              coordinates: [
+                [r.ends[0].lon, r.ends[0].lat],
+                [r.ends[1].lon, r.ends[1].lat],
+              ],
+            },
+          })),
+        },
+      });
+      map.addLayer({
+        id: "runway-surface",
+        type: "line",
+        source: "runways",
+        layout: { "line-cap": "square" },
+        paint: {
+          "line-color": "#20242c",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 16, 22],
+          "line-opacity": 0.95,
+        },
+      });
+      map.addLayer({
+        id: "runway-centerline",
+        type: "line",
+        source: "runways",
+        layout: { "line-cap": "butt" },
+        paint: {
+          "line-color": "#d9a441",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.6, 16, 2],
+          "line-dasharray": [3, 3],
+          "line-opacity": 0.85,
+        },
+      });
+      map.addLayer({
+        id: "runway-idents",
+        type: "symbol",
+        source: "runways",
+        layout: {
+          "symbol-placement": "line-center",
+          "text-field": ["get", "ident"],
+          "text-size": 12,
+          "text-font": ["Noto Sans Bold"],
+          "text-letter-spacing": 0.05,
+        },
+        paint: {
+          "text-color": "#f2f3f5",
+          "text-halo-color": "#05060a",
+          "text-halo-width": 1.4,
+        },
+      });
 
-      if (runways.length > 0) {
-        map.addSource("runways", {
-          type: "geojson",
-          data: {
-            type: "FeatureCollection",
-            features: runways.map((r) => ({
-              type: "Feature" as const,
-              properties: { ident: r.ident, lengthFt: r.lengthFt },
-              geometry: {
-                type: "LineString" as const,
-                coordinates: [
-                  [r.ends[0].lon, r.ends[0].lat],
-                  [r.ends[1].lon, r.ends[1].lat],
-                ],
-              },
-            })),
+      // Very faint ring showing the live traffic query area — so it's
+      // visible, not just implied, why aircraft appear/disappear as you
+      // pan. A real geographic circle (see lib/geo.ts), not MapLibre's
+      // pixel-radius circle layer, so it stays the true radius at any zoom.
+      map.addSource("query-radius", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: circlePoints(queryCenter.lat, queryCenter.lon, FLIGHTS_RADIUS_NM),
           },
-        });
-        map.addLayer({
-          id: "runway-surface",
-          type: "line",
-          source: "runways",
-          layout: { "line-cap": "square" },
-          paint: {
-            "line-color": "#20242c",
-            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 16, 22],
-            "line-opacity": 0.95,
-          },
-        });
-        map.addLayer({
-          id: "runway-centerline",
-          type: "line",
-          source: "runways",
-          layout: { "line-cap": "butt" },
-          paint: {
-            "line-color": "#d9a441",
-            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.6, 16, 2],
-            "line-dasharray": [3, 3],
-            "line-opacity": 0.85,
-          },
-        });
-        map.addLayer({
-          id: "runway-idents",
-          type: "symbol",
-          source: "runways",
-          layout: {
-            "symbol-placement": "line-center",
-            "text-field": ["get", "ident"],
-            "text-size": 12,
-            "text-font": ["Noto Sans Bold"],
-            "text-letter-spacing": 0.05,
-          },
-          paint: {
-            "text-color": "#f2f3f5",
-            "text-halo-color": "#05060a",
-            "text-halo-width": 1.4,
-          },
-        });
-      }
+        },
+      });
+      map.addLayer({
+        id: "query-radius-line",
+        type: "line",
+        source: "query-radius",
+        paint: {
+          "line-color": "#f2f3f5",
+          "line-width": 1,
+          "line-opacity": 0.08,
+        },
+      });
 
       // The Fisk VFR corridor and its checkpoints are Oshkosh-specific (a
       // real, named EAA arrival procedure) — only draw them over the
@@ -453,6 +550,7 @@ export default function Map3D({
     });
 
     mapRef.current = map;
+    flownLocationRef.current = { lat: location.lat, lon: location.lon };
 
     return () => {
       resizeObserver.disconnect();
@@ -472,6 +570,49 @@ export default function Map3D({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Search picks a new airport → fly there and refresh what's nearby.
+  // Guarded against the location this map instance was already created
+  // or last flown to, so it never fires from the mount effect's own
+  // initial centering, and never fires from pan-driven moveend updates
+  // (which change the map's center but never touch `location` itself).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const flown = flownLocationRef.current;
+    if (flown.lat === location.lat && flown.lon === location.lon) return;
+    flownLocationRef.current = { lat: location.lat, lon: location.lon };
+
+    map.easeTo({
+      center: [location.lon, location.lat],
+      zoom: 15.3,
+      pitch: 55,
+      bearing: 0,
+      duration: 2200,
+      easing: (t) => 1 - Math.pow(1 - t, 3),
+    });
+
+    lastRunwayCenterRef.current = { lat: location.lat, lon: location.lon };
+    refreshRunwaysRef.current(location.lat, location.lon);
+  }, [location.lat, location.lon]);
+
+  // Keeps the faint query-radius ring glued to wherever flight data is
+  // actually being fetched around, independent of the map's own camera
+  // position — it moves when `queryCenter` moves (pan-driven, threshold
+  // debounced upstream in page.tsx), not on every camera frame.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    const source = map.getSource("query-radius") as maplibregl.GeoJSONSource | undefined;
+    source?.setData({
+      type: "Feature",
+      properties: {},
+      geometry: {
+        type: "LineString",
+        coordinates: circlePoints(queryCenter.lat, queryCenter.lon, FLIGHTS_RADIUS_NM),
+      },
+    });
+  }, [queryCenter.lat, queryCenter.lon]);
 
   useEffect(() => {
     const map = mapRef.current;

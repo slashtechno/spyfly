@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Plane } from "lucide-react";
 import airvention from "@/data/airvention.json";
 import AnimatedNumber from "@/components/AnimatedNumber";
+import AirportSearch from "@/components/AirportSearch";
 import type { FlightsStatus } from "@/lib/useFlights";
 import type { RadarLocation } from "@/lib/useLocation";
 
@@ -62,6 +63,7 @@ export default function Header({
             {location.label}
           </p>
         </div>
+        <AirportSearch />
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">

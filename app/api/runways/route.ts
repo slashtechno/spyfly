@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { haversineNm } from "@/lib/geo";
 
 // The full OurAirports runways dataset (~46k runways worldwide, ~4MB) —
 // same source used for the hand-picked KOSH data in data/kosh-airfield.json,
@@ -12,17 +13,6 @@ interface Runway {
   ident: string;
   lengthFt: number;
   ends: [{ lat: number; lon: number }, { lat: number; lon: number }];
-}
-
-function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R_NM = 3440.065;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return R_NM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 // Minimal CSV row splitter — good enough for this dataset, which only
