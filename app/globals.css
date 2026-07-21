@@ -123,6 +123,36 @@ body {
   border-top: 1px solid var(--hairline) !important;
 }
 
+/* Scope frame: corner brackets standing in for a uniform rounded border —
+   the same reticle language as the selection ring drawn around a picked
+   aircraft on the map (Map3D.tsx's .map-select-ring), reused here so the
+   two data panels read as instrument readouts, not generic rounded cards. */
+/* No `position` here on purpose: every current user of .hud-frame already
+   establishes its own positioning context via a Tailwind `relative`/
+   `absolute` class, and since this rule is defined after Tailwind's own
+   utilities in source order, an equal-specificity `position` here would
+   silently win the cascade and override them. */
+.hud-frame {
+  --hud-tick: 14px;
+  --hud-tick-w: 2px;
+}
+.hud-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.65;
+  background:
+    linear-gradient(var(--gold), var(--gold)) top left / var(--hud-tick) var(--hud-tick-w) no-repeat,
+    linear-gradient(var(--gold), var(--gold)) top left / var(--hud-tick-w) var(--hud-tick) no-repeat,
+    linear-gradient(var(--gold), var(--gold)) top right / var(--hud-tick) var(--hud-tick-w) no-repeat,
+    linear-gradient(var(--gold), var(--gold)) top right / var(--hud-tick-w) var(--hud-tick) no-repeat,
+    linear-gradient(var(--gold), var(--gold)) bottom left / var(--hud-tick) var(--hud-tick-w) no-repeat,
+    linear-gradient(var(--gold), var(--gold)) bottom left / var(--hud-tick-w) var(--hud-tick) no-repeat,
+    linear-gradient(var(--gold), var(--gold)) bottom right / var(--hud-tick) var(--hud-tick-w) no-repeat,
+    linear-gradient(var(--gold), var(--gold)) bottom right / var(--hud-tick-w) var(--hud-tick) no-repeat;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

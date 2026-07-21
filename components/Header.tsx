@@ -53,7 +53,7 @@ export default function Header({
         <Plane className="h-5 w-5 -rotate-45 text-gold" strokeWidth={2.25} />
         <div className="leading-none">
           <h1 className="font-display text-lg font-extrabold tracking-tight text-ink-0">
-            AirVenture<span className="text-gold">Live</span>
+            Spy<span className="text-gold">Fly</span>
           </h1>
           <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-2">
             KOSH · Wittman Regional
@@ -63,20 +63,20 @@ export default function Header({
 
       <div className="flex items-center gap-2 sm:gap-3">
         {day && (
-          <div className="hidden items-baseline gap-1.5 rounded-full border border-hairline bg-panel-1 px-3 py-1.5 sm:flex">
-            <span className="font-display text-sm font-extrabold italic leading-none tabular text-ink-0">
+          <div className="hidden items-baseline gap-1.5 rounded-sm border border-hairline bg-panel-1 px-3 py-1.5 sm:flex">
+            <span className="font-display text-sm font-extrabold leading-none tabular text-ink-0">
               <AnimatedNumber value={day} />
             </span>
             <span className="font-mono text-[10px] text-ink-2">/ 7 days</span>
           </div>
         )}
-        <div className="hidden items-baseline gap-1.5 rounded-full border border-hairline bg-panel-1 px-3 py-1.5 md:flex">
+        <div className="hidden items-baseline gap-1.5 rounded-sm border border-hairline bg-panel-1 px-3 py-1.5 md:flex">
           <span className="font-mono text-xs tabular text-ink-0">
             {now ? now.toISOString().slice(11, 19) : "--:--:--"}Z
           </span>
           <span className="font-mono text-[9px] text-ink-2">UTC</span>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-hairline bg-panel-1 px-3 py-1.5">
+        <div className="flex items-center gap-2 rounded-sm border border-hairline bg-panel-1 px-3 py-1.5">
           <span className={`h-1.5 w-1.5 rounded-full ${meta.color} animate-pulse-dot`} />
           <span className="font-mono text-[10px] font-medium tracking-wide text-ink-0">
             {meta.label}

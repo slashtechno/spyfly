@@ -61,7 +61,7 @@ export default function TrafficTape({
           <button
             key={f.id}
             onClick={() => setFilter(f.id)}
-            className={`shrink-0 rounded-full border px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-wide transition-colors ${
+            className={`shrink-0 rounded-sm border px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-wide transition-colors ${
               filter === f.id
                 ? "border-gold/60 bg-gold/10 text-gold"
                 : "border-hairline/60 text-ink-1 hover:bg-panel-2"
@@ -93,7 +93,7 @@ export default function TrafficTape({
                 whileHover={{ x: 2 }}
                 transition={{ duration: 0.22 }}
                 onClick={() => onSelect(f.icao24)}
-                className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                className={`flex w-full items-center justify-between rounded border px-3 py-2.5 text-left transition-colors ${
                   alert
                     ? "border-red/60 bg-red/10"
                     : active

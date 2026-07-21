@@ -393,7 +393,7 @@ export default function Map3D({
             color:#c7d3de;
             background:rgba(10,14,20,0.55);
             padding:1px 6px;
-            border-radius:999px;
+            border-radius:2px;
             white-space:nowrap;
             letter-spacing:0.03em;
           ">${cp.name}</span>`;

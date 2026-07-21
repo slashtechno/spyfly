@@ -1,14 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, Inter, JetBrains_Mono } from "next/font/google";
+import { Big_Shoulders, IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const display = Bricolage_Grotesque({
+// Big Shoulders was drawn for the City of Chicago's wayfinding — the same
+// condensed industrial-signage register as the taxiway and hangar lettering
+// at a Midwest airfield.
+const display = Big_Shoulders({
   variable: "--font-display",
   subsets: ["latin"],
   weight: ["600", "700", "800"],
 });
 
-const body = Inter({
+const body = IBM_Plex_Sans({
   variable: "--font-body",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
@@ -21,13 +24,13 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AirVenture Live — KOSH Traffic Radar",
+  title: "SpyFly — KOSH Traffic Radar",
   description:
     "Live 3D traffic radar for EAA AirVenture Oshkosh, built on public airplanes.live data.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "AirVenture Live",
+    title: "SpyFly",
   },
 };
 

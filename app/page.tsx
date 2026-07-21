@@ -53,7 +53,7 @@ export default function Home() {
             initial={{ opacity: 0, x: -16 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2, ease: EASE }}
-            className="pointer-events-auto absolute bottom-4 left-3 top-4 hidden w-[260px] flex-col overflow-hidden rounded-2xl border border-hairline bg-panel-0/90 backdrop-blur-md lg:flex xl:w-[300px]"
+            className="hud-frame pointer-events-auto absolute bottom-4 left-3 top-4 hidden w-[260px] flex-col overflow-hidden rounded bg-panel-0/90 backdrop-blur-md lg:flex xl:w-[300px]"
           >
             <TrafficTape
               flights={flights}
@@ -70,7 +70,7 @@ export default function Home() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 16 }}
                 transition={{ duration: 0.35, ease: EASE }}
-                className="pointer-events-auto absolute bottom-4 right-3 top-4 hidden w-[280px] flex-col overflow-hidden rounded-2xl border border-hairline bg-panel-0/90 backdrop-blur-md lg:flex xl:w-[320px]"
+                className="hud-frame pointer-events-auto absolute bottom-4 right-3 top-4 hidden w-[280px] flex-col overflow-hidden rounded bg-panel-0/90 backdrop-blur-md lg:flex xl:w-[320px]"
               >
                 <AircraftPanel flight={selectedFlight} />
               </motion.aside>

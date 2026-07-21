@@ -54,7 +54,7 @@ export async function GET() {
 
   try {
     const res = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": "AirVentureLive/1.0" },
+      headers: { Accept: "application/json", "User-Agent": "SpyFly/1.0" },
       cache: "no-store",
     });
 

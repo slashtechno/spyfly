@@ -28,13 +28,13 @@ export default function MobileSheet({
       initial={false}
       animate={{ height: open ? "60vh" : 56 }}
       transition={{ type: "spring", stiffness: 300, damping: 32 }}
-      className="pointer-events-auto flex flex-col overflow-hidden rounded-t-2xl border-t border-x border-hairline bg-panel-0/95 backdrop-blur-md lg:hidden"
+      className="pointer-events-auto flex flex-col overflow-hidden rounded-t border-t border-x border-hairline bg-panel-0/95 backdrop-blur-md lg:hidden"
     >
       <button
         onClick={() => onOpenChange(!open)}
         className="flex h-14 shrink-0 items-center justify-between px-4"
       >
-        <div className="flex items-center gap-1 rounded-full bg-panel-1 p-1">
+        <div className="flex items-center gap-1 rounded-sm bg-panel-1 p-1">
           <span
             role="button"
             tabIndex={0}
@@ -43,7 +43,7 @@ export default function MobileSheet({
               onTabChange("traffic");
               onOpenChange(true);
             }}
-            className={`rounded-full px-3 py-1 font-display text-[11px] font-bold uppercase tracking-wide transition-colors ${
+            className={`rounded-sm px-3 py-1 font-display text-[11px] font-bold uppercase tracking-wide transition-colors ${
               tab === "traffic" ? "bg-gold text-bg" : "text-ink-1"
             }`}
           >
@@ -58,7 +58,7 @@ export default function MobileSheet({
                 onTabChange("aircraft");
                 onOpenChange(true);
               }}
-              className={`rounded-full px-3 py-1 font-display text-[11px] font-bold uppercase tracking-wide transition-colors ${
+              className={`rounded-sm px-3 py-1 font-display text-[11px] font-bold uppercase tracking-wide transition-colors ${
                 tab === "aircraft" ? "bg-gold text-bg" : "text-ink-1"
               }`}
             >

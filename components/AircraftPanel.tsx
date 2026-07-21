@@ -11,7 +11,7 @@ import { useFlightRoute } from "@/lib/useFlightRoute";
 
 function Stat({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
-    <div className="flex flex-col gap-0.5 rounded-xl border border-hairline/60 bg-panel-1 px-3 py-2.5">
+    <div className="flex flex-col gap-0.5 rounded border border-hairline/60 bg-panel-1 px-3 py-2.5">
       <span className="font-display text-[9px] font-bold uppercase tracking-[0.14em] text-ink-2">
         {label}
       </span>
@@ -38,7 +38,7 @@ function AircraftPhoto({ url, alt }: { url: string; alt: string }) {
       loading="lazy"
       referrerPolicy="no-referrer"
       onError={() => setFailed(true)}
-      className="h-36 w-full rounded-xl border border-hairline/60 object-cover"
+      className="h-36 w-full rounded border border-hairline/60 object-cover"
     />
   );
 }
@@ -75,7 +75,7 @@ export default function AircraftPanel({ flight }: { flight: Flight | null }) {
               className="flex flex-col gap-3"
             >
               {alert && (
-                <div className="flex items-center gap-2 rounded-xl border border-red/50 bg-red/10 px-3 py-2">
+                <div className="flex items-center gap-2 rounded border border-red/50 bg-red/10 px-3 py-2">
                   <span className="h-2 w-2 shrink-0 rounded-full bg-red animate-pulse-dot" />
                   <span className="font-display text-xs font-bold uppercase tracking-wide text-red">
                     Squawk {flight.squawk} · {alert}
@@ -93,7 +93,7 @@ export default function AircraftPanel({ flight }: { flight: Flight | null }) {
               </div>
 
               {route?.found && (route.origin || route.destination) && (
-                <div className="rounded-2xl border border-ice/30 bg-ice/5 px-4 py-3">
+                <div className="rounded border border-ice/30 bg-ice/5 px-4 py-3">
                   {route.airlineName && (
                     <div className="font-mono text-[10px] uppercase tracking-wide text-ice">
                       {route.airlineName}
@@ -122,11 +122,11 @@ export default function AircraftPanel({ flight }: { flight: Flight | null }) {
               )}
 
               {loading && (
-                <div className="h-36 w-full animate-pulse rounded-xl border border-hairline/60 bg-panel-1" />
+                <div className="h-36 w-full animate-pulse rounded border border-hairline/60 bg-panel-1" />
               )}
               {info?.photoUrl && <AircraftPhoto url={info.photoUrl} alt={flight.callsign} />}
 
-              <div className="rounded-xl border border-hairline/60 bg-panel-1 px-3 py-2.5">
+              <div className="rounded border border-hairline/60 bg-panel-1 px-3 py-2.5">
                 <span className="font-display text-[9px] font-bold uppercase tracking-[0.14em] text-ink-2">
                   What is it
                 </span>
@@ -140,13 +140,13 @@ export default function AircraftPanel({ flight }: { flight: Flight | null }) {
                   <div className="font-mono text-[11px] text-ink-2">{flight.operator}</div>
                 )}
                 {age && (
-                  <div className="mt-1 inline-block rounded-full bg-gold/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-gold">
+                  <div className="mt-1 inline-block rounded-sm bg-gold/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-gold">
                     Built {flight.yearBuilt} · {age}
                   </div>
                 )}
               </div>
 
-              <div className="rounded-2xl border border-hairline/60 bg-panel-1 px-4 py-4">
+              <div className="hud-frame relative rounded bg-panel-1 px-4 py-4">
                 <span className="font-display text-[9px] font-bold uppercase tracking-[0.14em] text-ink-2">
                   Altitude
                 </span>
@@ -175,7 +175,7 @@ export default function AircraftPanel({ flight }: { flight: Flight | null }) {
                 <Stat label="Squawk" value={flight.squawk ?? "—"} />
               </div>
 
-              <div className="rounded-xl border border-hairline/60 bg-panel-1 px-3 py-2.5">
+              <div className="rounded border border-hairline/60 bg-panel-1 px-3 py-2.5">
                 <span className="font-display text-[9px] font-bold uppercase tracking-[0.14em] text-ink-2">
                   Size class
                 </span>
@@ -184,7 +184,7 @@ export default function AircraftPanel({ flight }: { flight: Flight | null }) {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-hairline/60 bg-panel-1 px-3 py-2.5">
+              <div className="rounded border border-hairline/60 bg-panel-1 px-3 py-2.5">
                 <span className="font-display text-[9px] font-bold uppercase tracking-[0.14em] text-ink-2">
                   Status
                 </span>
