@@ -9,7 +9,7 @@ import type { RadarLocation } from "@/lib/useLocation";
 import { useFlightRoute, getFlightRoute } from "@/lib/useFlightRoute";
 import { useFlightTrack } from "@/lib/useFlightTrack";
 import { flightCategory } from "@/lib/aircraftClass";
-import { circlePoints, greatCirclePoints, haversineNm, projectForward, smoothExtension } from "@/lib/geo";
+import { circlePoints, greatCirclePoints, haversineNm, projectForward, roundCoord, smoothExtension } from "@/lib/geo";
 import type { NearestAirport } from "@/app/api/airports/nearest/route";
 
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
@@ -43,13 +43,6 @@ interface RunwayGeometry {
   ident: string;
   lengthFt: number;
   ends: { lat: number; lon: number }[];
-}
-
-// ~0.6nm precision — enough to find nearby runways, coarse enough that a
-// device's exact GPS fix (from the map's "locate me" control) never shows
-// up verbatim in even our own server's request logs.
-function roundCoord(n: number): number {
-  return Math.round(n * 100) / 100;
 }
 
 async function fetchNearbyRunways(

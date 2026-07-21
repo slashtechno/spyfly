@@ -1,3 +1,15 @@
+// Rounds a coordinate to ~0.6nm precision (2 decimal degrees — 1° of
+// latitude is exactly 60nm). Used at every point this app sends a lat/lon
+// to a network request (airplanes.live, and even our own /api/runways and
+// /api/airports/nearest as defense-in-depth): a device's exact GPS fix from
+// the map's "locate me" control should never reach any request URL, or even
+// our own server logs, as a precise physical location. Internal app state
+// (map center, query center) keeps full precision — only the outbound URL
+// gets coarsened.
+export function roundCoord(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 // Great-circle distance in nautical miles. Used to decide whether the map
 // has panned "far enough" to be worth a fresh flights/runways fetch, rather
 // than refetching on every tiny nudge.

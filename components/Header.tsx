@@ -6,6 +6,7 @@ import { Compass, Plane } from "lucide-react";
 import airvention from "@/data/airvention.json";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import AirportSearch from "@/components/AirportSearch";
+import InstallPwa from "@/components/InstallPwa";
 import type { FlightsStatus } from "@/lib/useFlights";
 import type { RadarLocation } from "@/lib/useLocation";
 
@@ -83,6 +84,7 @@ export default function Header({
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
+        <InstallPwa />
         {day && (
           <div className="hidden items-baseline gap-1.5 rounded-sm border border-hairline bg-panel-1 px-3 py-1.5 sm:flex">
             <span className="font-display text-sm font-extrabold leading-none tabular text-ink-0">
@@ -103,7 +105,7 @@ export default function Header({
             {meta.label}
           </span>
           <span className="font-mono text-[10px] tabular text-ink-2">
-            · <AnimatedNumber value={count} /> apt
+            · <AnimatedNumber value={count} /> aircraft
           </span>
         </div>
       </div>

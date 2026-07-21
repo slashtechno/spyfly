@@ -1,13 +1,12 @@
 # SpyFly
 
-A live 3D traffic radar for [EAA AirVenture Oshkosh](https://www.eaa.org/airventure) — the world's busiest control tower for one week a year. Built entirely on free, keyless public data sources: no API keys, no signup, no config.
+A live air traffic radar, originally for [EAA AirVenture Oshkosh](https://www.eaa.org/airventure) — the world's busiest control tower for one week a year. Built on free, zero-config public data sources. 
 
 ## What it does
 
-- **Live 3D traffic radar** around KOSH (Wittman Regional Airport), pitched map with real runway geometry, the famous Fisk VFR arrival corridor, and animated plane markers.
 - **Aircraft detail** on selection: registration, type, operator, year built, size class, and a photo when available. Filed routes (origin → destination, plus a clearly-labeled straight-line ETA estimate) for scheduled airline flights. A real recorded flight-history line when OpenSky has one, falling back to a great-circle estimate, falling back to nothing — never a fabricated line.
 - **Filter by category** — commercial, military, or GA/hobby traffic.
-- **Installable PWA** — add to your home screen for a fast, full-screen view at the show.
+- **Installable PWA** — add to your home screen for a fullscreen experience.
 - **Works anywhere, not just KOSH** — pass `?lat=&lon=&label=` to point the radar at any airport, e.g. `/?lat=33.9425&lon=-118.4081&label=LAX`. Live traffic and real runway geometry both follow; the Fisk VFR corridor and "day of AirVenture" counter are Oshkosh-only and only show for the default location.
 
 ## Data sources (all free, no API key)
@@ -36,3 +35,6 @@ No environment variables are required — every API used is free and keyless. If
 ## Deploying
 
 This is a standard Next.js app — deploy it on [Vercel](https://vercel.com/new) with no special configuration.
+
+> [!NOTE]
+> This was built as a small proof-of-concept using AI, but the state it's in now is still very usable, and I do consider it to be polished enough to be deployed publicly. 

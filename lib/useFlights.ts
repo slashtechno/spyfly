@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Flight } from "@/lib/types";
+import { roundCoord } from "@/lib/geo";
 
 // airplanes.live is dynamically rate-limited; polling every ~10s keeps us
 // comfortably inside that without hammering it. Fetched directly from the
@@ -37,14 +38,6 @@ interface AirplanesLiveAircraft {
   category?: string;
   seen_pos?: number;
   seen?: number;
-}
-
-// Rounds to ~0.6nm precision (2 decimal degrees) — plenty accurate for a
-// 20nm-radius traffic query, but coarse enough that a device's exact GPS
-// fix (e.g. from the map's "locate me" control) never reaches this or any
-// other third-party API as a precise physical location.
-function roundCoord(n: number): number {
-  return Math.round(n * 100) / 100;
 }
 
 function toFlight(a: AirplanesLiveAircraft): Flight {
