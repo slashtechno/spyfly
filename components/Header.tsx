@@ -6,6 +6,7 @@ import { Plane } from "lucide-react";
 import airvention from "@/data/airvention.json";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import type { FlightsStatus } from "@/lib/useFlights";
+import type { RadarLocation } from "@/lib/useLocation";
 
 function useUtcClock() {
   const [now, setNow] = useState<Date | null>(null);
@@ -26,12 +27,14 @@ function dayOfEvent(now: Date | null): number | null {
 export default function Header({
   count,
   status,
+  location,
 }: {
   count: number;
   status: FlightsStatus;
+  location: RadarLocation;
 }) {
   const now = useUtcClock();
-  const day = dayOfEvent(now);
+  const day = location.isDefault ? dayOfEvent(now) : null;
 
   const statusMeta: Record<FlightsStatus, { label: string; color: string }> = {
     loading: { label: "CONNECTING", color: "bg-ink-2" },
@@ -56,7 +59,7 @@ export default function Header({
             Spy<span className="text-gold">Fly</span>
           </h1>
           <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-2">
-            KOSH · Wittman Regional
+            {location.label}
           </p>
         </div>
       </div>

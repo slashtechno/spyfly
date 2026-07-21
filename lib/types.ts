@@ -18,14 +18,6 @@ export interface Flight {
   lastSeenSec: number;
 }
 
-export interface FlightsResponse {
-  fetchedAt: number;
-  source: "airplanes-live" | "stale-cache" | "rate-limited";
-  count: number;
-  flights: Flight[];
-  retryAfterSec?: number;
-}
-
 export interface AircraftInfo {
   icao24: string;
   photoUrl: string | null;

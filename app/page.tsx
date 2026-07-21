@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { useFlights } from "@/lib/useFlights";
+import { useLocation } from "@/lib/useLocation";
 import Header from "@/components/Header";
 import TrafficTape from "@/components/TrafficTape";
 import AircraftPanel from "@/components/AircraftPanel";
@@ -14,7 +15,8 @@ const Map3D = dynamic(() => import("@/components/Map3D"), { ssr: false });
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function Home() {
-  const { flights, status } = useFlights();
+  const location = useLocation();
+  const { flights, status } = useFlights(location.lat, location.lon);
   const [selectedIcao, setSelectedIcao] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetTab, setSheetTab] = useState<"traffic" | "aircraft">("traffic");
@@ -39,13 +41,21 @@ export default function Home() {
     <div className="relative h-dvh w-full overflow-hidden bg-bg">
       {/* Full-bleed hero: the map IS the app, not a tile inside a grid. */}
       <div className="absolute inset-0">
-        <Map3D flights={flights} selectedIcao={selectedIcao} onSelect={handleSelect} />
+        {/* Map3D's own setup effect runs once on mount and reads whatever
+            `location` it's first given — wait for the URL check to resolve
+            before mounting it at all, so it never latches onto the default
+            location and then ignores a real ?lat=&lon= override. Costs one
+            extra tick, invisible to the user, and Map3D is ssr:false anyway
+            so this can't introduce a hydration mismatch. */}
+        {location.resolved && (
+          <Map3D flights={flights} selectedIcao={selectedIcao} onSelect={handleSelect} location={location} />
+        )}
       </div>
 
       {/* Overlay layer floats on top; only its children are interactive. */}
       <div className="pointer-events-none relative z-10 flex h-full flex-col">
         <div className="safe-top safe-left safe-right pointer-events-auto bg-gradient-to-b from-bg/90 via-bg/40 to-transparent">
-          <Header count={flights.length} status={status} />
+          <Header count={flights.length} status={status} location={location} />
         </div>
 
         <div className="safe-left safe-right relative flex-1">

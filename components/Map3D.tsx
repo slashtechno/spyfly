@@ -4,8 +4,8 @@ import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Flight } from "@/lib/types";
-import airvention from "@/data/airvention.json";
 import airfield from "@/data/kosh-airfield.json";
+import type { RadarLocation } from "@/lib/useLocation";
 import { useFlightRoute } from "@/lib/useFlightRoute";
 import { useFlightTrack } from "@/lib/useFlightTrack";
 import { greatCirclePoints, projectForward, smoothExtension } from "@/lib/geo";
@@ -20,6 +20,24 @@ interface TrackedMarker {
   from: { lng: number; lat: number; rot: number };
   to: { lng: number; lat: number; rot: number };
   animStart: number;
+}
+
+interface RunwayGeometry {
+  ident: string;
+  lengthFt: number;
+  ends: { lat: number; lon: number }[];
+}
+
+async function fetchNearbyRunways(lat: number, lon: number): Promise<RunwayGeometry[]> {
+  try {
+    const res = await fetch(`/api/runways?lat=${lat}&lon=${lon}`);
+    if (!res.ok) return [];
+    const data: { runways?: RunwayGeometry[] } = await res.json();
+    return data.runways ?? [];
+  } catch {
+    // Runway overlay is decorative, not critical — fail quiet.
+    return [];
+  }
 }
 
 function altitudeColor(f: Flight): string {
@@ -71,10 +89,12 @@ export default function Map3D({
   flights,
   selectedIcao,
   onSelect,
+  location,
 }: {
   flights: Flight[];
   selectedIcao: string | null;
   onSelect: (icao: string) => void;
+  location: RadarLocation;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -161,13 +181,17 @@ export default function Map3D({
     trailSource.setData({ type: "FeatureCollection", features: [] });
   }, [selectedFlight, selectedRoute, selectedTrack]);
 
+  // Mount-once map setup. `location` is read here but deliberately left out
+  // of the deps array: nothing in this app changes it after first render
+  // (it comes from the URL at load time), and re-running this effect would
+  // tear down and rebuild the whole MapLibre instance for no reason.
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: MAP_STYLE,
-      center: [airvention.airport.lon, airvention.airport.lat],
+      center: [location.lon, location.lat],
       zoom: 12.3,
       pitch: 0,
       bearing: -25,
@@ -196,7 +220,7 @@ export default function Map3D({
     const resizeObserver = new ResizeObserver(() => map.resize());
     resizeObserver.observe(containerRef.current);
 
-    map.on("load", () => {
+    map.on("load", async () => {
       map.setSky({
         "sky-color": "#0a1120",
         "sky-horizon-blend": 0.6,
@@ -284,129 +308,142 @@ export default function Map3D({
         },
       });
 
-      // Real runway geometry (OurAirports) — drawn as an actual paved strip
-      // with a dashed centerline, not a schematic stand-in.
-      map.addSource("runways", {
-        type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: airfield.runways.map((r) => ({
-            type: "Feature" as const,
-            properties: { ident: r.ident, lengthFt: r.lengthFt },
-            geometry: {
-              type: "LineString" as const,
-              coordinates: [
-                [r.ends[0].lon, r.ends[0].lat],
-                [r.ends[1].lon, r.ends[1].lat],
-              ],
-            },
-          })),
-        },
-      });
-      map.addLayer({
-        id: "runway-surface",
-        type: "line",
-        source: "runways",
-        layout: { "line-cap": "square" },
-        paint: {
-          "line-color": "#20242c",
-          "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 16, 22],
-          "line-opacity": 0.95,
-        },
-      });
-      map.addLayer({
-        id: "runway-centerline",
-        type: "line",
-        source: "runways",
-        layout: { "line-cap": "butt" },
-        paint: {
-          "line-color": "#d9a441",
-          "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.6, 16, 2],
-          "line-dasharray": [3, 3],
-          "line-opacity": 0.85,
-        },
-      });
-      map.addLayer({
-        id: "runway-idents",
-        type: "symbol",
-        source: "runways",
-        layout: {
-          "symbol-placement": "line-center",
-          "text-field": ["get", "ident"],
-          "text-size": 12,
-          "text-font": ["Noto Sans Bold"],
-          "text-letter-spacing": 0.05,
-        },
-        paint: {
-          "text-color": "#f2f3f5",
-          "text-halo-color": "#05060a",
-          "text-halo-width": 1.4,
-        },
-      });
+      // Real runway geometry (OurAirports). For the default AirVenture
+      // location this is the hand-picked, richly-annotated KOSH data; for
+      // any other point it's whatever /api/runways finds nearby — same
+      // shape, same rendering, just sourced live instead of curated.
+      const runways: RunwayGeometry[] = location.isDefault
+        ? airfield.runways
+        : await fetchNearbyRunways(location.lat, location.lon);
 
-      // Fisk arrival corridor — the famous railroad-track VFR line pilots
-      // fly single-file into the show.
-      map.addSource("corridor", {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "LineString",
-            coordinates: [
-              ...airfield.arrivalCorridor.checkpoints.map((c) => [c.lon, c.lat]).reverse(),
-              [airvention.airport.lon, airvention.airport.lat],
-            ],
+      if (runways.length > 0) {
+        map.addSource("runways", {
+          type: "geojson",
+          data: {
+            type: "FeatureCollection",
+            features: runways.map((r) => ({
+              type: "Feature" as const,
+              properties: { ident: r.ident, lengthFt: r.lengthFt },
+              geometry: {
+                type: "LineString" as const,
+                coordinates: [
+                  [r.ends[0].lon, r.ends[0].lat],
+                  [r.ends[1].lon, r.ends[1].lat],
+                ],
+              },
+            })),
           },
-        },
-      });
-      map.addLayer({
-        id: "corridor-line",
-        type: "line",
-        source: "corridor",
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: {
-          "line-color": "#8fcbff",
-          "line-width": 1.5,
-          "line-dasharray": [1, 2],
-          "line-opacity": 0.55,
-        },
-      });
-
-      // VFR checkpoints along the Fisk arrival — styled as wayfinding flags,
-      // deliberately quieter than the plane/selection treatment so they
-      // don't read as an alert. Hover/tap shows what they actually are.
-      for (const cp of airfield.arrivalCorridor.checkpoints) {
-        const el = document.createElement("div");
-        el.title = `${cp.name} — VFR checkpoint, ${cp.distanceNmToField} nm from the field\n${cp.note}`;
-        el.style.display = "flex";
-        el.style.flexDirection = "column";
-        el.style.alignItems = "center";
-        el.style.gap = "3px";
-        el.style.cursor = "help";
-        el.innerHTML = `
-          <svg width="14" height="14" viewBox="0 0 14 14" style="opacity:0.9">
-            <path d="M7 1 L13 7 L7 13 L1 7 Z" fill="#0d1520" stroke="#8fcbff" stroke-width="1.4" />
-          </svg>
-          <span style="
-            font:600 10px var(--font-mono, monospace);
-            color:#c7d3de;
-            background:rgba(10,14,20,0.55);
-            padding:1px 6px;
-            border-radius:2px;
-            white-space:nowrap;
-            letter-spacing:0.03em;
-          ">${cp.name}</span>`;
-
-        new maplibregl.Marker({ element: el, anchor: "bottom" })
-          .setLngLat([cp.lon, cp.lat])
-          .addTo(map);
+        });
+        map.addLayer({
+          id: "runway-surface",
+          type: "line",
+          source: "runways",
+          layout: { "line-cap": "square" },
+          paint: {
+            "line-color": "#20242c",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 16, 22],
+            "line-opacity": 0.95,
+          },
+        });
+        map.addLayer({
+          id: "runway-centerline",
+          type: "line",
+          source: "runways",
+          layout: { "line-cap": "butt" },
+          paint: {
+            "line-color": "#d9a441",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.6, 16, 2],
+            "line-dasharray": [3, 3],
+            "line-opacity": 0.85,
+          },
+        });
+        map.addLayer({
+          id: "runway-idents",
+          type: "symbol",
+          source: "runways",
+          layout: {
+            "symbol-placement": "line-center",
+            "text-field": ["get", "ident"],
+            "text-size": 12,
+            "text-font": ["Noto Sans Bold"],
+            "text-letter-spacing": 0.05,
+          },
+          paint: {
+            "text-color": "#f2f3f5",
+            "text-halo-color": "#05060a",
+            "text-halo-width": 1.4,
+          },
+        });
       }
 
-      // Establishing shot: start already framing the airfield, then settle
+      // The Fisk VFR corridor and its checkpoints are Oshkosh-specific (a
+      // real, named EAA arrival procedure) — only draw them over the
+      // default AirVenture location, not a custom ?lat=&lon=.
+      if (location.isDefault) {
+        // Fisk arrival corridor — the famous railroad-track VFR line pilots
+        // fly single-file into the show.
+        map.addSource("corridor", {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                ...airfield.arrivalCorridor.checkpoints.map((c) => [c.lon, c.lat]).reverse(),
+                [location.lon, location.lat],
+              ],
+            },
+          },
+        });
+        map.addLayer({
+          id: "corridor-line",
+          type: "line",
+          source: "corridor",
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": "#8fcbff",
+            "line-width": 1.5,
+            "line-dasharray": [1, 2],
+            "line-opacity": 0.55,
+          },
+        });
+
+        // VFR checkpoints along the Fisk arrival — styled as wayfinding
+        // flags, deliberately quieter than the plane/selection treatment so
+        // they don't read as an alert. Hover/tap shows what they actually are.
+        for (const cp of airfield.arrivalCorridor.checkpoints) {
+          const el = document.createElement("div");
+          el.title = `${cp.name} — VFR checkpoint, ${cp.distanceNmToField} nm from the field\n${cp.note}`;
+          el.style.display = "flex";
+          el.style.flexDirection = "column";
+          el.style.alignItems = "center";
+          el.style.gap = "3px";
+          el.style.cursor = "help";
+          el.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 14 14" style="opacity:0.9">
+              <path d="M7 1 L13 7 L7 13 L1 7 Z" fill="#0d1520" stroke="#8fcbff" stroke-width="1.4" />
+            </svg>
+            <span style="
+              font:600 10px var(--font-mono, monospace);
+              color:#c7d3de;
+              background:rgba(10,14,20,0.55);
+              padding:1px 6px;
+              border-radius:2px;
+              white-space:nowrap;
+              letter-spacing:0.03em;
+            ">${cp.name}</span>`;
+
+          new maplibregl.Marker({ element: el, anchor: "bottom" })
+            .setLngLat([cp.lon, cp.lat])
+            .addTo(map);
+        }
+      }
+
+      // Establishing shot: start already framing the field, then settle
       // into the pitched 3D view pilots actually see flying the pattern.
       map.easeTo({
-        center: [airvention.airport.lon, airvention.airport.lat],
+        center: [location.lon, location.lat],
         zoom: 15.3,
         pitch: 55,
         bearing: 0,
@@ -433,6 +470,7 @@ export default function Map3D({
       map.remove();
       mapRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

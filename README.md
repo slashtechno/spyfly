@@ -8,15 +8,16 @@ A live 3D traffic radar for [EAA AirVenture Oshkosh](https://www.eaa.org/airvent
 - **Aircraft detail** on selection: registration, type, operator, year built, size class, and a photo when available. Filed routes (origin → destination, plus a clearly-labeled straight-line ETA estimate) for scheduled airline flights. A real recorded flight-history line when OpenSky has one, falling back to a great-circle estimate, falling back to nothing — never a fabricated line.
 - **Filter by category** — commercial, military, or GA/hobby traffic.
 - **Installable PWA** — add to your home screen for a fast, full-screen view at the show.
+- **Works anywhere, not just KOSH** — pass `?lat=&lon=&label=` to point the radar at any airport, e.g. `/?lat=33.9425&lon=-118.4081&label=LAX`. Live traffic and real runway geometry both follow; the Fisk VFR corridor and "day of AirVenture" counter are Oshkosh-only and only show for the default location.
 
 ## Data sources (all free, no API key)
 
 | Source | Used for |
 |---|---|
-| [airplanes.live](https://airplanes.live/) | Live aircraft positions, registration, type, operator, year built |
+| [airplanes.live](https://airplanes.live/) | Live aircraft positions, registration, type, operator, year built — fetched directly from the browser, so each visitor's own IP counts against its rate limit instead of one shared server IP |
 | [OpenSky Network](https://opensky-network.org/) | Real recorded flight-history tracks (`/tracks/all`) |
 | [adsbdb.com](https://www.adsbdb.com/) | Aircraft photos, filed route lookup by callsign |
-| [OurAirports](https://ourairports.com/) | Real runway geometry for KOSH |
+| [OurAirports](https://ourairports.com/) | Real runway geometry, worldwide — curated for KOSH, fetched and filtered server-side by proximity for anywhere else |
 | [CARTO](https://carto.com/basemaps) / [OpenStreetMap](https://www.openstreetmap.org/) | Basemap tiles |
 
 See [`FUTURE.md`](./FUTURE.md) for known limitations and deferred work.
