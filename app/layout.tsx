@@ -23,10 +23,39 @@ const mono = JetBrains_Mono({
   weight: ["400", "500", "700"],
 });
 
+const TITLE = "SpyFly — Live Air Traffic Radar";
+const DESCRIPTION =
+  "A live 3D air traffic radar for any airport — search one by name, or start at EAA AirVenture Oshkosh, the world's busiest control tower for one week a year. Built entirely on free, keyless public data: no API keys, no signup, no config.";
+
 export const metadata: Metadata = {
-  title: "SpyFly — KOSH Traffic Radar",
-  description:
-    "Live 3D traffic radar for EAA AirVenture Oshkosh, built on public airplanes.live data.",
+  metadataBase: new URL("https://flights.angad.me"),
+  title: TITLE,
+  description: DESCRIPTION,
+  applicationName: "SpyFly",
+  keywords: [
+    "flight tracker",
+    "live flight tracker",
+    "air traffic radar",
+    "ADS-B",
+    "flight radar",
+    "EAA AirVenture Oshkosh",
+    "KOSH",
+    "Wittman Regional Airport",
+  ],
+  alternates: { canonical: "/" },
+  robots: { index: true, follow: true },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: "/",
+    siteName: "SpyFly",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
