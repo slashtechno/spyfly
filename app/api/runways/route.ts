@@ -7,7 +7,10 @@ import { haversineNm } from "@/lib/geo";
 // downloads the handful of runways near the point they asked about, not the
 // whole file. Rarely changes, so cache it hard.
 const RUNWAYS_CSV_URL = "https://davidmegginson.github.io/ourairports-data/runways.csv";
-const RADIUS_NM = 8;
+const DEFAULT_RADIUS_NM = 8;
+// However wide the viewport gets, never search (or return) runways beyond
+// this — keeps the overlay legible and the per-request CSV scan bounded.
+const MAX_RADIUS_NM = 30;
 
 interface Runway {
   ident: string;
@@ -29,6 +32,10 @@ export async function GET(req: Request) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
     return NextResponse.json({ runways: [] }, { status: 400 });
   }
+  const requestedRadius = Number(searchParams.get("radiusNm"));
+  const radiusNm = Number.isFinite(requestedRadius)
+    ? Math.min(Math.max(requestedRadius, 1), MAX_RADIUS_NM)
+    : DEFAULT_RADIUS_NM;
 
   const res = await fetch(RUNWAYS_CSV_URL, { next: { revalidate: 60 * 60 * 24 } });
   if (!res.ok) return NextResponse.json({ runways: [] }, { status: 502 });
@@ -59,7 +66,7 @@ export async function GET(req: Request) {
     }
     const midLat = (lat1 + lat2) / 2;
     const midLon = (lon1 + lon2) / 2;
-    if (haversineNm(lat, lon, midLat, midLon) > RADIUS_NM) continue;
+    if (haversineNm(lat, lon, midLat, midLon) > radiusNm) continue;
 
     runways.push({
       ident: `${cells[idIdx]} ${cells[leIdent]}/${cells[heIdent]}`,

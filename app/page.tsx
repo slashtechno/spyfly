@@ -3,13 +3,14 @@
 import { useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
-import { useFlights } from "@/lib/useFlights";
+import { useFlights, DEFAULT_FLIGHTS_RADIUS_NM } from "@/lib/useFlights";
 import { useLocation } from "@/lib/useLocation";
 import { haversineNm } from "@/lib/geo";
 import Header from "@/components/Header";
 import TrafficTape from "@/components/TrafficTape";
 import AircraftPanel from "@/components/AircraftPanel";
 import MobileSheet from "@/components/MobileSheet";
+import type { NearestAirport } from "@/app/api/airports/nearest/route";
 
 const Map3D = dynamic(() => import("@/components/Map3D"), { ssr: false });
 
@@ -26,7 +27,23 @@ export default function Home() {
   // queried around. Starts wherever `location` is and re-centers either
   // instantly (a search picked a new airport) or once panning has moved
   // far enough to matter (see handleCenterChange) — never on every frame.
-  const [flightCenter, setFlightCenter] = useState({ lat: location.lat, lon: location.lon });
+  // radiusNm follows the viewport too (see Map3D's moveend handler).
+  const [flightCenter, setFlightCenter] = useState({
+    lat: location.lat,
+    lon: location.lon,
+    radiusNm: DEFAULT_FLIGHTS_RADIUS_NM,
+  });
+  // True once the viewport is wider than Map3D's MAX_QUERY_RADIUS_NM —
+  // querying pauses (flightCenter stops updating, last-known traffic stays
+  // on screen) rather than firing an oversized request.
+  const [zoomedOutTooFar, setZoomedOutTooFar] = useState(false);
+  // "Follow nearest airport" — when on, the header shows whichever airport
+  // you've panned closest to instead of staying pinned to the last search.
+  // On by default (the whole point is to make pan-exploration feel alive),
+  // but toggleable in the header for anyone who'd rather the label stay
+  // put while they look around.
+  const [followNearest, setFollowNearest] = useState(true);
+  const [nearbyAirport, setNearbyAirport] = useState<NearestAirport | null>(null);
   // "Adjust state during render" (not a useEffect) for the case where
   // `location` changed out from under us — the React-recommended pattern
   // for resetting derived state to follow a prop, since it bails out and
@@ -34,18 +51,43 @@ export default function Home() {
   const [syncedLocation, setSyncedLocation] = useState(location);
   if (syncedLocation.lat !== location.lat || syncedLocation.lon !== location.lon) {
     setSyncedLocation(location);
-    setFlightCenter({ lat: location.lat, lon: location.lon });
+    setFlightCenter({ lat: location.lat, lon: location.lon, radiusNm: DEFAULT_FLIGHTS_RADIUS_NM });
+    setZoomedOutTooFar(false);
+    // A search just repointed everything — don't keep showing whichever
+    // airport was nearest wherever the map used to be centered.
+    setNearbyAirport(null);
   }
-  const { flights, status } = useFlights(flightCenter.lat, flightCenter.lon);
+  const { flights, status } = useFlights(flightCenter.lat, flightCenter.lon, flightCenter.radiusNm);
   const [selectedIcao, setSelectedIcao] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetTab, setSheetTab] = useState<"traffic" | "aircraft">("traffic");
 
-  const handleCenterChange = useCallback((lat: number, lon: number) => {
+  const handleCenterChange = useCallback((lat: number, lon: number, radiusNm: number, tooFar: boolean) => {
+    setZoomedOutTooFar(tooFar);
+    if (tooFar) return;
     setFlightCenter((prev) =>
-      haversineNm(lat, lon, prev.lat, prev.lon) > FLIGHT_FOLLOW_THRESHOLD_NM ? { lat, lon } : prev,
+      haversineNm(lat, lon, prev.lat, prev.lon) > FLIGHT_FOLLOW_THRESHOLD_NM || Math.abs(radiusNm - prev.radiusNm) / prev.radiusNm > 0.2
+        ? { lat, lon, radiusNm }
+        : prev,
     );
   }, []);
+
+  const handleNearbyAirportChange = useCallback((airport: NearestAirport | null) => {
+    setNearbyAirport(airport);
+  }, []);
+
+  // What the header actually displays: the followed nearby airport when
+  // that mode is on and something was found nearby, otherwise whatever was
+  // explicitly searched (or the default). Deliberately doesn't touch
+  // `location` itself — the Fisk corridor/day-counter/URL stay tied to the
+  // real searched location, only the label follows.
+  const displayLocation = useMemo(
+    () =>
+      followNearest && nearbyAirport
+        ? { ...location, label: `${nearbyAirport.icao} · ${nearbyAirport.name}` }
+        : location,
+    [followNearest, nearbyAirport, location],
+  );
 
   const selectedFlight = useMemo(
     () => flights.find((f) => f.icao24 === selectedIcao) ?? null,
@@ -80,7 +122,9 @@ export default function Home() {
             onSelect={handleSelect}
             location={location}
             queryCenter={flightCenter}
+            followNearest={followNearest}
             onCenterChange={handleCenterChange}
+            onNearbyAirportChange={handleNearbyAirportChange}
           />
         )}
       </div>
@@ -88,7 +132,13 @@ export default function Home() {
       {/* Overlay layer floats on top; only its children are interactive. */}
       <div className="pointer-events-none relative z-10 flex h-full flex-col">
         <div className="safe-top safe-left safe-right pointer-events-auto bg-gradient-to-b from-bg/90 via-bg/40 to-transparent">
-          <Header count={flights.length} status={status} location={location} />
+          <Header
+            count={flights.length}
+            status={status}
+            location={displayLocation}
+            followNearest={followNearest}
+            onToggleFollowNearest={() => setFollowNearest((v) => !v)}
+          />
         </div>
 
         <div className="safe-left safe-right relative flex-1">
@@ -103,6 +153,7 @@ export default function Home() {
               selectedIcao={selectedIcao}
               onSelect={handleSelect}
               status={status}
+              zoomedOutTooFar={zoomedOutTooFar}
             />
           </motion.aside>
 

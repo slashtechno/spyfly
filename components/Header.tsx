@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Plane } from "lucide-react";
+import { Compass, Plane } from "lucide-react";
 import airvention from "@/data/airvention.json";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import AirportSearch from "@/components/AirportSearch";
@@ -29,10 +29,14 @@ export default function Header({
   count,
   status,
   location,
+  followNearest,
+  onToggleFollowNearest,
 }: {
   count: number;
   status: FlightsStatus;
   location: RadarLocation;
+  followNearest: boolean;
+  onToggleFollowNearest: () => void;
 }) {
   const now = useUtcClock();
   const day = location.isDefault ? dayOfEvent(now) : null;
@@ -64,6 +68,18 @@ export default function Header({
           </p>
         </div>
         <AirportSearch />
+        <button
+          onClick={onToggleFollowNearest}
+          title={followNearest ? "Following nearest airport while panning" : "Not following pan — label stays fixed"}
+          aria-pressed={followNearest}
+          className={`flex h-8 w-8 items-center justify-center rounded-sm border transition-colors ${
+            followNearest
+              ? "border-gold/60 bg-gold/10 text-gold"
+              : "border-hairline bg-panel-1 text-ink-1 hover:bg-panel-2 hover:text-ink-0"
+          }`}
+        >
+          <Compass className="h-3.5 w-3.5" />
+        </button>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">

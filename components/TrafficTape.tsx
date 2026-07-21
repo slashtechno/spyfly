@@ -27,11 +27,16 @@ export default function TrafficTape({
   selectedIcao,
   onSelect,
   status,
+  zoomedOutTooFar,
 }: {
   flights: FlightT[];
   selectedIcao: string | null;
   onSelect: (icao: string) => void;
   status?: FlightsStatus;
+  // True when the viewport is wider than the map will query for — traffic
+  // shown below is whatever was last fetched before that happened, frozen
+  // rather than stale-but-silently-wrong.
+  zoomedOutTooFar?: boolean;
 }) {
   const [filter, setFilter] = useState<FlightCategory | "all">("all");
 
@@ -56,6 +61,11 @@ export default function TrafficTape({
           {airborne.length} airborne · {grounded.length} on ground
         </span>
       </div>
+      {zoomedOutTooFar && (
+        <div className="mx-4 mb-3 rounded border border-gold/40 bg-gold/10 px-3 py-2 font-mono text-[10px] text-gold">
+          Zoomed out too far for live traffic — showing the last known area. Zoom in to resume.
+        </div>
+      )}
       <div className="hide-scrollbar flex gap-1.5 overflow-x-auto px-4 pb-3">
         {FILTERS.map((f) => (
           <button

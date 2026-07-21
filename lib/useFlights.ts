@@ -9,8 +9,9 @@ import type { Flight } from "@/lib/types";
 // visitor's own IP counts against that limit instead of one shared server
 // IP taking the hit for every visitor at once.
 const POLL_MS = 10000;
-// Exported so the map can draw a faint ring showing the live query area.
-export const FLIGHTS_RADIUS_NM = 20;
+// Radius used before the map has reported a real viewport-derived one (see
+// Map3D's moveend handler) — also the floor page.tsx clamps to.
+export const DEFAULT_FLIGHTS_RADIUS_NM = 20;
 
 export type FlightsStatus = "loading" | "live" | "stale" | "rate-limited" | "error";
 
@@ -68,7 +69,7 @@ function toFlight(a: AirplanesLiveAircraft): Flight {
   };
 }
 
-export function useFlights(lat: number, lon: number) {
+export function useFlights(lat: number, lon: number, radiusNm: number = DEFAULT_FLIGHTS_RADIUS_NM) {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [fetchedAt, setFetchedAt] = useState<number | null>(null);
   const [status, setStatus] = useState<FlightsStatus>("loading");
@@ -81,7 +82,7 @@ export function useFlights(lat: number, lon: number) {
 
   useEffect(() => {
     mounted.current = true;
-    const url = `https://api.airplanes.live/v2/point/${roundCoord(lat)}/${roundCoord(lon)}/${FLIGHTS_RADIUS_NM}`;
+    const url = `https://api.airplanes.live/v2/point/${roundCoord(lat)}/${roundCoord(lon)}/${radiusNm}`;
 
     async function poll() {
       if (Date.now() < blockedUntilRef.current) {
@@ -133,7 +134,7 @@ export function useFlights(lat: number, lon: number) {
       mounted.current = false;
       clearInterval(id);
     };
-  }, [lat, lon]);
+  }, [lat, lon, radiusNm]);
 
   return { flights, fetchedAt, status, retryAfterSec, pollMs: POLL_MS };
 }

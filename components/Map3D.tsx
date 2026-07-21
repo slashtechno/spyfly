@@ -3,24 +3,37 @@
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { Flight } from "@/lib/types";
+import type { Flight, FlightRoute } from "@/lib/types";
 import airfield from "@/data/kosh-airfield.json";
 import type { RadarLocation } from "@/lib/useLocation";
-import { useFlightRoute } from "@/lib/useFlightRoute";
+import { useFlightRoute, getFlightRoute } from "@/lib/useFlightRoute";
 import { useFlightTrack } from "@/lib/useFlightTrack";
-import { FLIGHTS_RADIUS_NM } from "@/lib/useFlights";
+import { flightCategory } from "@/lib/aircraftClass";
 import { circlePoints, greatCirclePoints, haversineNm, projectForward, smoothExtension } from "@/lib/geo";
+import type { NearestAirport } from "@/app/api/airports/nearest/route";
 
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 const POLL_MS = 9000;
 // Half the /api/runways search radius — refetch proactively before actually
 // panning past the edge of what was last fetched, not right at the edge.
 const RUNWAY_REFRESH_THRESHOLD_NM = 4;
+const NEAREST_AIRPORT_THRESHOLD_NM = 4;
+// The live traffic query follows the viewport (smallest circle covering
+// what's visible), clamped to a sane range: never so small a tiny nudge
+// looks like traffic vanished, never so large a fully zoomed-out view fires
+// an enormous query — past MAX, querying pauses entirely (see tooFar).
+const MIN_QUERY_RADIUS_NM = 5;
+const MAX_QUERY_RADIUS_NM = 150;
+// Runways scale with the viewport too, but capped tighter — a wide traffic
+// radius doesn't need to paint every runway in the state, just what's
+// reasonably nearby.
+const MAX_RUNWAY_RADIUS_NM = 30;
 
 interface TrackedMarker {
   marker: maplibregl.Marker;
   el: HTMLDivElement;
   plane: HTMLDivElement;
+  label: HTMLDivElement;
   from: { lng: number; lat: number; rot: number };
   to: { lng: number; lat: number; rot: number };
   animStart: number;
@@ -39,15 +52,32 @@ function roundCoord(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-async function fetchNearbyRunways(lat: number, lon: number): Promise<RunwayGeometry[]> {
+async function fetchNearbyRunways(
+  lat: number,
+  lon: number,
+  radiusNm: number,
+): Promise<RunwayGeometry[]> {
   try {
-    const res = await fetch(`/api/runways?lat=${roundCoord(lat)}&lon=${roundCoord(lon)}`);
+    const res = await fetch(
+      `/api/runways?lat=${roundCoord(lat)}&lon=${roundCoord(lon)}&radiusNm=${Math.round(radiusNm)}`,
+    );
     if (!res.ok) return [];
     const data: { runways?: RunwayGeometry[] } = await res.json();
     return data.runways ?? [];
   } catch {
     // Runway overlay is decorative, not critical — fail quiet.
     return [];
+  }
+}
+
+async function fetchNearestAirport(lat: number, lon: number): Promise<NearestAirport | null> {
+  try {
+    const res = await fetch(`/api/airports/nearest?lat=${roundCoord(lat)}&lon=${roundCoord(lon)}`);
+    if (!res.ok) return null;
+    const data: { airport?: NearestAirport | null } = await res.json();
+    return data.airport ?? null;
+  } catch {
+    return null;
   }
 }
 
@@ -96,13 +126,41 @@ function planeElement(color: string): HTMLDivElement {
   return el;
 }
 
+// A sibling of `plane` inside the same marker element, not a child of it —
+// `plane`'s transform is what carries the heading rotation, and this label
+// needs to stay upright and readable regardless of which way the aircraft
+// is pointed.
+function labelElement(): HTMLDivElement {
+  const el = document.createElement("div");
+  el.style.cssText =
+    "position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:2px;" +
+    "white-space:nowrap;font:600 9px var(--font-mono, monospace);color:#f2f3f5;" +
+    "background:rgba(10,14,20,0.7);padding:1px 4px;border-radius:2px;pointer-events:none;" +
+    "letter-spacing:0.02em;display:none;";
+  return el;
+}
+
+// "UAL ORD-EWR" — airline callsign prefix (already 3 letters by ICAO
+// convention, no separate airline lookup needed) plus the filed route,
+// preferring IATA codes (the 3-letter form travelers recognize) and
+// falling back to ICAO only when a leg has no IATA code on file.
+function routeLabelText(callsign: string, route: FlightRoute): string | null {
+  if (!route.found) return null;
+  const originCode = route.origin?.iata ?? route.origin?.icao;
+  const destCode = route.destination?.iata ?? route.destination?.icao;
+  if (!originCode || !destCode) return null;
+  return `${callsign.slice(0, 3)} ${originCode}-${destCode}`;
+}
+
 export default function Map3D({
   flights,
   selectedIcao,
   onSelect,
   location,
   queryCenter,
+  followNearest,
   onCenterChange,
+  onNearbyAirportChange,
 }: {
   flights: Flight[];
   selectedIcao: string | null;
@@ -111,12 +169,22 @@ export default function Map3D({
   // Wherever live flight data is actually being queried around right now —
   // drawn as a faint ring so it's visible why traffic appears/disappears
   // while panning. Distinct from `location` (see onCenterChange below).
-  queryCenter: { lat: number; lon: number };
-  // Reports the map's center on every settled pan/zoom (moveend) — used to
-  // keep live flight data relevant to what's actually on screen. Distinct
-  // from `location`: this never renames "where you are" in the header, it
-  // just follows the viewport.
-  onCenterChange?: (lat: number, lon: number) => void;
+  queryCenter: { lat: number; lon: number; radiusNm: number };
+  // Whether to look up and report the nearest airport while panning at
+  // all — skipped entirely (no requests fired) when the user has turned
+  // off "follow nearest airport".
+  followNearest: boolean;
+  // Reports the map's center and a viewport-derived query radius on every
+  // settled pan/zoom (moveend) — used to keep live flight data relevant to
+  // what's actually on screen. `tooFar` means the viewport is wider than
+  // MAX_QUERY_RADIUS_NM; the caller should pause querying rather than fire
+  // an oversized request. Distinct from `location`: this never renames
+  // "where you are" in the header, it just follows the viewport.
+  onCenterChange?: (lat: number, lon: number, radiusNm: number, tooFar: boolean) => void;
+  // Reports whichever airport is nearest the current pan position (or null
+  // if none is close enough to mean anything), throttled the same way as
+  // the runway refetch. Only fired when `followNearest` is true.
+  onNearbyAirportChange?: (airport: NearestAirport | null) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -124,9 +192,12 @@ export default function Map3D({
   const rafRef = useRef<number | null>(null);
   const selectedRef = useRef<string | null>(selectedIcao);
   const onCenterChangeRef = useRef(onCenterChange);
+  const onNearbyAirportChangeRef = useRef(onNearbyAirportChange);
+  const followNearestRef = useRef(followNearest);
   // Tracks the point runways were last fetched for, so panning only
   // triggers a refetch once you've actually moved far enough to matter.
   const lastRunwayCenterRef = useRef({ lat: location.lat, lon: location.lon });
+  const lastNearestCheckRef = useRef({ lat: location.lat, lon: location.lon });
   // The lat/lon the map is currently centered/flown to because of an
   // explicit location change (search selection) — distinguishes "the user
   // picked a new airport" from "the user is just panning around".
@@ -135,11 +206,15 @@ export default function Map3D({
   // location-change effect below trigger the same runway refetch the
   // mount-once effect's moveend handler uses, without needing them to
   // share a closure.
-  const refreshRunwaysRef = useRef<(lat: number, lon: number) => Promise<void>>(async () => {});
+  const refreshRunwaysRef = useRef<(lat: number, lon: number, radiusNm: number) => Promise<void>>(
+    async () => {},
+  );
 
   useEffect(() => {
     onCenterChangeRef.current = onCenterChange;
-  }, [onCenterChange]);
+    onNearbyAirportChangeRef.current = onNearbyAirportChange;
+    followNearestRef.current = followNearest;
+  }, [onCenterChange, onNearbyAirportChange, followNearest]);
 
   const selectedFlight = flights.find((f) => f.icao24 === selectedIcao) ?? null;
   // Reuses useAircraftInfo/useFlightRoute's shared module-level cache, so
@@ -263,8 +338,8 @@ export default function Map3D({
     // same live proximity lookup used for the initial location, so runways
     // keep appearing as you pan toward a different airport instead of only
     // ever showing whatever was nearby on load.
-    async function refreshRunways(lat: number, lon: number) {
-      const list = await fetchNearbyRunways(lat, lon);
+    async function refreshRunways(lat: number, lon: number, radiusNm: number) {
+      const list = await fetchNearbyRunways(lat, lon, Math.min(radiusNm, MAX_RUNWAY_RADIUS_NM));
       const src = map.getSource("runways") as maplibregl.GeoJSONSource | undefined;
       src?.setData({
         type: "FeatureCollection",
@@ -283,14 +358,39 @@ export default function Map3D({
     }
     refreshRunwaysRef.current = refreshRunways;
 
+    // The smallest geographic circle that covers what's actually visible —
+    // center to the farthest corner of the bounding box. Not a true
+    // rectangle query (airplanes.live is point+radius, not bbox), but this
+    // is the honest circle-shaped equivalent of "the current viewport".
+    function viewportRadiusNm(): number {
+      const c = map.getCenter();
+      const b = map.getBounds();
+      const ne = b.getNorthEast();
+      const sw = b.getSouthWest();
+      return Math.max(haversineNm(c.lat, c.lng, ne.lat, ne.lng), haversineNm(c.lat, c.lng, sw.lat, sw.lng));
+    }
+
     map.on("moveend", () => {
       const c = map.getCenter();
-      onCenterChangeRef.current?.(c.lat, c.lng);
+      const rawRadius = viewportRadiusNm();
+      const tooFar = rawRadius > MAX_QUERY_RADIUS_NM;
+      const clampedRadius = Math.min(Math.max(rawRadius, MIN_QUERY_RADIUS_NM), MAX_QUERY_RADIUS_NM);
+      onCenterChangeRef.current?.(c.lat, c.lng, clampedRadius, tooFar);
 
-      const last = lastRunwayCenterRef.current;
-      if (haversineNm(c.lat, c.lng, last.lat, last.lon) > RUNWAY_REFRESH_THRESHOLD_NM) {
+      const lastRunway = lastRunwayCenterRef.current;
+      if (haversineNm(c.lat, c.lng, lastRunway.lat, lastRunway.lon) > RUNWAY_REFRESH_THRESHOLD_NM) {
         lastRunwayCenterRef.current = { lat: c.lat, lon: c.lng };
-        refreshRunways(c.lat, c.lng);
+        refreshRunways(c.lat, c.lng, clampedRadius);
+      }
+
+      if (followNearestRef.current) {
+        const lastNearest = lastNearestCheckRef.current;
+        if (haversineNm(c.lat, c.lng, lastNearest.lat, lastNearest.lon) > NEAREST_AIRPORT_THRESHOLD_NM) {
+          lastNearestCheckRef.current = { lat: c.lat, lon: c.lng };
+          fetchNearestAirport(c.lat, c.lng).then((airport) => {
+            onNearbyAirportChangeRef.current?.(airport);
+          });
+        }
       }
     });
 
@@ -388,7 +488,11 @@ export default function Map3D({
       // path. The source/layers are created empty-or-not up front so a
       // later moveend always has something to setData() into, even if
       // there happened to be nothing nearby on load.
-      const initialRunways = await fetchNearbyRunways(location.lat, location.lon);
+      const initialRunways = await fetchNearbyRunways(
+        location.lat,
+        location.lon,
+        Math.min(queryCenter.radiusNm, MAX_RUNWAY_RADIUS_NM),
+      );
       map.addSource("runways", {
         type: "geojson",
         data: {
@@ -458,7 +562,7 @@ export default function Map3D({
           properties: {},
           geometry: {
             type: "LineString",
-            coordinates: circlePoints(queryCenter.lat, queryCenter.lon, FLIGHTS_RADIUS_NM),
+            coordinates: circlePoints(queryCenter.lat, queryCenter.lon, queryCenter.radiusNm),
           },
         },
       });
@@ -593,7 +697,8 @@ export default function Map3D({
     });
 
     lastRunwayCenterRef.current = { lat: location.lat, lon: location.lon };
-    refreshRunwaysRef.current(location.lat, location.lon);
+    refreshRunwaysRef.current(location.lat, location.lon, queryCenter.radiusNm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.lat, location.lon]);
 
   // Keeps the faint query-radius ring glued to wherever flight data is
@@ -609,10 +714,10 @@ export default function Map3D({
       properties: {},
       geometry: {
         type: "LineString",
-        coordinates: circlePoints(queryCenter.lat, queryCenter.lon, FLIGHTS_RADIUS_NM),
+        coordinates: circlePoints(queryCenter.lat, queryCenter.lon, queryCenter.radiusNm),
       },
     });
-  }, [queryCenter.lat, queryCenter.lon]);
+  }, [queryCenter.lat, queryCenter.lon, queryCenter.radiusNm]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -644,8 +749,10 @@ export default function Map3D({
 
         const plane = planeElement(color);
         plane.style.transition = "transform 60ms linear";
+        const label = labelElement();
         el.appendChild(ring);
         el.appendChild(plane);
+        el.appendChild(label);
 
         el.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -660,10 +767,25 @@ export default function Map3D({
           marker,
           el,
           plane,
+          label,
           from: { lng: f.lon, lat: f.lat, rot: rotation },
           to: { lng: f.lon, lat: f.lat, rot: rotation },
           animStart: now,
         });
+
+        // Fetched once per marker (not on every poll refresh, which just
+        // updates the `existing` branch below) — getFlightRoute's own cache
+        // also means repeat sightings of the same callsign are free.
+        if (flightCategory(f) === "commercial") {
+          getFlightRoute(f.callsign)
+            .then((route) => {
+              const text = routeLabelText(f.callsign, route);
+              if (!text) return;
+              label.textContent = text;
+              label.style.display = "block";
+            })
+            .catch(() => {});
+        }
       } else {
         const svgColorTarget = existing.plane.querySelector("path");
         if (svgColorTarget) svgColorTarget.setAttribute("fill", color);
