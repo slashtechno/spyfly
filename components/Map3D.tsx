@@ -175,6 +175,15 @@ export default function Map3D({
     });
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+    map.addControl(
+      new maplibregl.GeolocateControl({
+        positionOptions: { enableHighAccuracy: true },
+        // Keep re-centering as the user walks the grounds, rather than a
+        // one-shot fly-to — most useful in PWA/standalone mode at the show.
+        trackUserLocation: true,
+      }),
+      "top-right",
+    );
     map.scrollZoom.setWheelZoomRate(1 / 300);
 
     // The container's real size can change after MapLibre's own initial

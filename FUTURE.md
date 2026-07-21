@@ -4,7 +4,7 @@ Things requested or identified during development that are deliberately deferred
 
 ## Requested, not yet built
 
-- **"Locate me" button.** Especially relevant in PWA/standalone mode on a phone at the show — use the browser Geolocation API to drop a "you are here" marker and fly the map to it. Needs a permission-gated button (likely near the zoom controls) and a distinct marker style so it doesn't get confused with aircraft or VFR checkpoints.
+None currently. The "Locate me" button (MapLibre's built-in `GeolocateControl`, top-right next to zoom) has been built — it drops a "you are here" puck and re-centers as the user moves, useful in PWA/standalone mode at the show.
 
 ## Known limitations worth revisiting
 
