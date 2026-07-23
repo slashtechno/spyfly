@@ -309,16 +309,78 @@ export default function Map3D({
     });
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
-    map.addControl(
-      new maplibregl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        // Keep re-centering as the user walks the grounds, rather than a
-        // one-shot fly-to — most useful in PWA/standalone mode at the show.
-        trackUserLocation: true,
-      }),
-      "top-right",
-    );
+    const geolocateControl = new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
+      // Keep re-centering as the user walks the grounds, rather than a
+      // one-shot fly-to — most useful in PWA/standalone mode at the show.
+      trackUserLocation: true,
+    });
+    map.addControl(geolocateControl, "top-right");
     map.scrollZoom.setWheelZoomRate(1 / 300);
+
+    // Compass-follow: while locate-me is active, rotate the map to match
+    // the device's compass heading (phone-map "walking" orientation),
+    // rather than leaving north fixed at the top. The bearing-reset compass
+    // button (part of NavigationControl above) already snaps back to north
+    // on click; it just also needs to cancel this so the next orientation
+    // event doesn't immediately rotate the map away from north again.
+    const orientationEvent = "ondeviceorientationabsolute" in window ? "deviceorientationabsolute" : "deviceorientation";
+
+    function headingFromOrientation(e: DeviceOrientationEvent): number | null {
+      // iOS exposes a ready-to-use compass heading; everything else has to
+      // derive one from `alpha`, which is relative to the device's initial
+      // orientation rather than true north, and needs the screen rotation
+      // folded back in so a landscape-held phone doesn't skew the result.
+      const webkitHeading = (e as DeviceOrientationEvent & { webkitCompassHeading?: number }).webkitCompassHeading;
+      if (webkitHeading != null) return webkitHeading;
+      if (e.alpha == null) return null;
+      const screenAngle = window.screen.orientation?.angle ?? 0;
+      return (360 - e.alpha + screenAngle) % 360;
+    }
+
+    function handleOrientation(e: DeviceOrientationEvent) {
+      // Every MapLibre camera method (setBearing included) cancels any
+      // animation already in flight. GeolocateControl re-centers with its
+      // own easeTo/flyTo whenever a new fix comes in, so applying a bearing
+      // mid-flight was cutting that animation short a few pixels into it —
+      // skip frames here and pick the heading back up once it settles.
+      if (map.isMoving()) return;
+      const heading = headingFromOrientation(e);
+      if (heading != null) map.setBearing(heading);
+    }
+
+    function startCompassFollow() {
+      window.addEventListener(orientationEvent, handleOrientation);
+    }
+    function stopCompassFollow() {
+      window.removeEventListener(orientationEvent, handleOrientation);
+    }
+
+    // iOS requires DeviceOrientationEvent.requestPermission() to be called
+    // directly from a user gesture, so this hangs off the geolocate button's
+    // own click rather than one of the control's async lifecycle events
+    // (which fire after the geolocation fix comes back, too late for
+    // Safari's activation check).
+    async function requestOrientationPermission() {
+      const DeviceOrientationEventTyped = window.DeviceOrientationEvent as unknown as {
+        requestPermission?: () => Promise<"granted" | "denied">;
+      };
+      if (typeof DeviceOrientationEventTyped?.requestPermission === "function") {
+        try {
+          if ((await DeviceOrientationEventTyped.requestPermission()) === "granted") startCompassFollow();
+        } catch {
+          // Permission dismissed/unsupported — fall back to no compass rotation.
+        }
+      } else {
+        startCompassFollow();
+      }
+    }
+
+    const geolocateButton = containerRef.current.querySelector<HTMLButtonElement>(".maplibregl-ctrl-geolocate");
+    const compassButton = containerRef.current.querySelector<HTMLButtonElement>(".maplibregl-ctrl-compass");
+    geolocateButton?.addEventListener("click", requestOrientationPermission);
+    compassButton?.addEventListener("click", stopCompassFollow);
+    geolocateControl.on("trackuserlocationend", stopCompassFollow);
 
     // The container's real size can change after MapLibre's own initial
     // measurement (Framer Motion layout, flex reflow, viewport rotation) —
@@ -651,6 +713,9 @@ export default function Map3D({
 
     return () => {
       resizeObserver.disconnect();
+      stopCompassFollow();
+      geolocateButton?.removeEventListener("click", requestOrientationPermission);
+      compassButton?.removeEventListener("click", stopCompassFollow);
       // React (Strict Mode in dev) tears this effect down and re-runs it
       // once to surface cleanup bugs. Without clearing marker tracking here,
       // markers created against this (about-to-be-destroyed) map instance
